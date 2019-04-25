@@ -6,12 +6,30 @@ import "gogoproto/gogo.proto";
 option (gogoproto.equal_all) = true;
 
 // A way to reference resources across namespaces
-// TODO(ilackarms): make upstreamname and secretref into ResourceRefs
 message ResourceRef {
     option (gogoproto.goproto_sizecache) = false;
     option (gogoproto.goproto_unkeyed) = false;
     option (gogoproto.goproto_unrecognized) = false;
 
+    // name of the target resource
     string name = 1;
+
+    // namespace of the target resource
     string namespace = 2;
+}
+
+// A way to reference resources across clusters
+message ClusterResourceRef {
+    option (gogoproto.goproto_sizecache) = false;
+    option (gogoproto.goproto_unkeyed) = false;
+    option (gogoproto.goproto_unrecognized) = false;
+
+    // name of the target resource
+    string name = 1;
+
+    // namespace of the target resource
+    string namespace = 2;
+
+    // cluster name of the target resource
+    string cluster = 3;
 }

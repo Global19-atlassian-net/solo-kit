@@ -153,10 +153,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := mockResourceClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := mockResourceClient.List(namespace2, clients.ListOpts{})
-					combined := MocksByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -213,10 +210,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := fakeResourceClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := fakeResourceClient.List(namespace2, clients.ListOpts{})
-					combined := FakesByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -273,10 +267,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := anotherMockResourceClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := anotherMockResourceClient.List(namespace2, clients.ListOpts{})
-					combined := AnothermockresourcesByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -332,9 +323,7 @@ var _ = Describe("V1Emitter", func() {
 					Expect(err).NotTo(HaveOccurred())
 				case <-time.After(time.Second * 10):
 					nsList, _ := clusterResourceClient.List(clients.ListOpts{})
-					combined := ClusterresourcesByNamespace{
-						"": nsList,
-					}
+					combined := nsList
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -383,10 +372,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := mockCustomTypeClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := mockCustomTypeClient.List(namespace2, clients.ListOpts{})
-					combined := MctsByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -443,10 +429,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := podClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := podClient.List(namespace2, clients.ListOpts{})
-					combined := github_com_solo_io_solo_kit_pkg_api_v1_resources_common_kubernetes.PodsByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -516,10 +499,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := mockResourceClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := mockResourceClient.List(namespace2, clients.ListOpts{})
-					combined := MocksByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -576,10 +556,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := fakeResourceClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := fakeResourceClient.List(namespace2, clients.ListOpts{})
-					combined := FakesByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -636,10 +613,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := anotherMockResourceClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := anotherMockResourceClient.List(namespace2, clients.ListOpts{})
-					combined := AnothermockresourcesByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -695,9 +669,7 @@ var _ = Describe("V1Emitter", func() {
 					Expect(err).NotTo(HaveOccurred())
 				case <-time.After(time.Second * 10):
 					nsList, _ := clusterResourceClient.List(clients.ListOpts{})
-					combined := ClusterresourcesByNamespace{
-						"": nsList,
-					}
+					combined := nsList
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -746,10 +718,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := mockCustomTypeClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := mockCustomTypeClient.List(namespace2, clients.ListOpts{})
-					combined := MctsByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}
@@ -806,10 +775,7 @@ var _ = Describe("V1Emitter", func() {
 				case <-time.After(time.Second * 10):
 					nsList1, _ := podClient.List(namespace1, clients.ListOpts{})
 					nsList2, _ := podClient.List(namespace2, clients.ListOpts{})
-					combined := github_com_solo_io_solo_kit_pkg_api_v1_resources_common_kubernetes.PodsByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
 			}

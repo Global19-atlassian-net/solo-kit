@@ -152,16 +152,11 @@ var _ = Describe("{{ upper_camel .Project.ProjectConfig.Version }}Emitter", func
 				case <-time.After(time.Second * 10):
 {{- if .ClusterScoped }}
 					nsList, _ := {{ lower_camel .Name }}Client.List(clients.ListOpts{})
-					combined := {{ .ImportPrefix }}{{ upper_camel .PluralName }}ByNamespace{
-						"": nsList,
-					}
+					combined := nsList
 {{- else }}
 					nsList1, _ := {{ lower_camel .Name }}Client.List(namespace1, clients.ListOpts{})
 					nsList2, _ := {{ lower_camel .Name }}Client.List(namespace2, clients.ListOpts{})
-					combined := {{ .ImportPrefix }}{{ upper_camel .PluralName }}ByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 {{- end }}
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
@@ -276,16 +271,11 @@ var _ = Describe("{{ upper_camel .Project.ProjectConfig.Version }}Emitter", func
 				case <-time.After(time.Second * 10):
 {{- if .ClusterScoped }}
 					nsList, _ := {{ lower_camel .Name }}Client.List(clients.ListOpts{})
-					combined := {{ .ImportPrefix }}{{ upper_camel .PluralName }}ByNamespace{
-						"": nsList,
-					}
+					combined := nsList
 {{- else }}
 					nsList1, _ := {{ lower_camel .Name }}Client.List(namespace1, clients.ListOpts{})
 					nsList2, _ := {{ lower_camel .Name }}Client.List(namespace2, clients.ListOpts{})
-					combined := {{ .ImportPrefix }}{{ upper_camel .PluralName }}ByNamespace{
-						namespace1: nsList1,
-						namespace2: nsList2,
-					}
+					combined := append(nsList1, nsList2...)
 {{- end }}
 					Fail("expected final snapshot before 10 seconds. expected " + log.Sprintf("%v", combined))
 				}
