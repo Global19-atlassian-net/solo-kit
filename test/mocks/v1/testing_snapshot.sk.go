@@ -12,12 +12,12 @@ import (
 )
 
 type TestingSnapshot struct {
-	Mocks                MockResourceList
-	Fakes                FakeResourceList
-	Anothermockresources AnotherMockResourceList
+	Mocks                MocksByNamespace
+	Fakes                FakesByNamespace
+	Anothermockresources AnothermockresourcesByNamespace
 	Clusterresources     ClusterResourceList
-	Mcts                 MockCustomTypeList
-	Pods                 github_com_solo_io_solo_kit_pkg_api_v1_resources_common_kubernetes.PodList
+	Mcts                 MctsByNamespace
+	Pods                 github_com_solo_io_solo_kit_pkg_api_v1_resources_common_kubernetes.PodsByNamespace
 }
 
 func (s TestingSnapshot) Clone() TestingSnapshot {

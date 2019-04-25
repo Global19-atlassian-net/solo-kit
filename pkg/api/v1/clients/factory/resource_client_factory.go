@@ -116,8 +116,8 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 		if opts.Cache == nil {
 			return nil, errors.Errorf("invalid opts, configmap client requires a kube core cache")
 		}
-		if opts.CustomtConverter != nil {
-			return configmap.NewResourceClientWithConverter(opts.Clientset, resourceType, opts.Cache, opts.CustomtConverter)
+		if opts.CustomConverter != nil {
+			return configmap.NewResourceClientWithConverter(opts.Clientset, resourceType, opts.Cache, opts.CustomConverter)
 		}
 		return configmap.NewResourceClient(opts.Clientset, resourceType, opts.Cache, opts.PlainConfigmaps)
 	case *KubeSecretClientFactory:
@@ -151,6 +151,10 @@ type KubeResourceClientFactory struct {
 	SkipCrdCreation    bool
 	NamespaceWhitelist []string
 	ResyncPeriod       time.Duration
+	// the cluster that these resources belong to
+	// all resources written and read by the resource client
+	// will be marked with this cluster
+	Cluster string
 }
 
 func (f *KubeResourceClientFactory) NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error) {
@@ -190,7 +194,11 @@ type KubeConfigMapClientFactory struct {
 	PlainConfigmaps bool
 	// a custom handler to define how configmaps are serialized/deserialized out of resources
 	// if set, Plain is ignored
-	CustomtConverter configmap.ConfigMapConverter
+	CustomConverter configmap.ConfigMapConverter
+	// the cluster that these resources belong to
+	// all resources written and read by the resource client
+	// will be marked with this cluster
+	Cluster string
 }
 
 func (f *KubeConfigMapClientFactory) NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error) {
@@ -204,6 +212,10 @@ type KubeSecretClientFactory struct {
 	PlainSecrets    bool
 	SecretConverter kubesecret.SecretConverter
 	Cache           cache.KubeCoreCache
+	// the cluster that these resources belong to
+	// all resources written and read by the resource client
+	// will be marked with this cluster
+	Cluster string
 }
 
 func (f *KubeSecretClientFactory) NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error) {

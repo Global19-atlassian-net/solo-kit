@@ -10,7 +10,7 @@ import (
 )
 
 type KubeconfigsSnapshot struct {
-	Kubeconfigs KubeConfigList
+	Kubeconfigs KubeconfigsByNamespace
 }
 
 func (s KubeconfigsSnapshot) Clone() KubeconfigsSnapshot {
