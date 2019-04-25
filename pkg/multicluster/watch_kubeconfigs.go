@@ -2,22 +2,20 @@ package multicluster
 
 import (
 	"context"
+	"github.com/solo-io/go-utils/contextutils"
+	v1 "github.com/solo-io/solo-kit/pkg/multicluster/v1"
 
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/factory"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/cache"
-	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/pkg/multicluster/secretconverter"
-	v1 "github.com/solo-io/solo-kit/pkg/multicluster/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-type ClusterId core.ResourceRef
-
 // empty ClusterId refers to local
-var LocalCluster = ClusterId{}
+const LocalCluster = ""
 
-type KubeConfigs map[ClusterId]*v1.KubeConfig
+type KubeConfigs map[string]*v1.KubeConfig
 
 func WatchKubeConfigs(ctx context.Context, kube kubernetes.Interface, cache cache.KubeCoreCache) (<-chan KubeConfigs, <-chan error, error) {
 	kubeConfigClient, err := v1.NewKubeConfigClient(&factory.KubeSecretClientFactory{
@@ -42,11 +40,17 @@ type kubeConfigSyncer struct {
 	kubeConfigsChan chan KubeConfigs
 }
 
-func (s *kubeConfigSyncer) Sync(_ context.Context, snap *v1.KubeconfigsSnapshot) error {
+func (s *kubeConfigSyncer) Sync(ctx context.Context, snap *v1.KubeconfigsSnapshot) error {
+	ctx = contextutils.WithLogger(ctx, "multicluster")
+	logger := contextutils.LoggerFrom(ctx)
 	cfgs := snap.Kubeconfigs.List()
 	kubeConfigs := make(KubeConfigs)
 	for _, cfg := range cfgs {
-		kubeConfigs[ClusterId(cfg.GetMetadata().Ref())] = cfg
+		if _, alreadyDefined := kubeConfigs[cfg.Cluster]; alreadyDefined {
+			logger.Warnf("secret already defined for %v, %v will be ignored", cfg.Cluster, cfg.Metadata.Ref())
+			continue
+		}
+		kubeConfigs[cfg.Cluster] = cfg
 	}
 	s.kubeConfigsChan <- kubeConfigs
 	return nil
