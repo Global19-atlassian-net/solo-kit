@@ -50,6 +50,7 @@ func (r *KubeConfig) Hash() uint64 {
 }
 
 type KubeConfigList []*KubeConfig
+type KubeconfigsByNamespace map[string]KubeConfigList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list KubeConfigList) Find(namespace, name string) (*KubeConfig, error) {

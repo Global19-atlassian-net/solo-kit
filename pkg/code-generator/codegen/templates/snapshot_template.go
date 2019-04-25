@@ -18,7 +18,11 @@ import (
 
 type {{ .GoName }}Snapshot struct {
 {{- range .Resources}}
+{{- if .ClusterScoped }}
 	{{ upper_camel .PluralName }} {{ .ImportPrefix }}{{ .Name }}List
+{{- else }}
+	{{ upper_camel .PluralName }} {{ .ImportPrefix }}{{ upper_camel .PluralName }}ByNamespace
+{{- end }}
 {{- end}}
 }
 
