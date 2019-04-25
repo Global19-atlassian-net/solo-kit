@@ -37,6 +37,9 @@ func ProtoCast(res Resource) (ProtoResource, error) {
 }
 
 func Key(resource Resource) string {
+	if cluster := resource.GetMetadata().Cluster; cluster != "" {
+		return fmt.Sprintf("%v%v%v%v%v%v%v", Kind(resource), delim, resource.GetMetadata().Cluster, delim, resource.GetMetadata().Namespace, delim, resource.GetMetadata().Name)
+	}
 	return fmt.Sprintf("%v%v%v%v%v", Kind(resource), delim, resource.GetMetadata().Namespace, delim,
 		resource.GetMetadata().Name)
 }
@@ -67,11 +70,7 @@ func (m ResourcesById) List() ResourceList {
 	for _, res := range m {
 		all = append(all, res)
 	}
-	// sort by type
-	sort.SliceStable(all, func(i, j int) bool {
-		return Key(all[i]) < Key(all[j])
-	})
-	return all
+	return all.Sort()
 }
 
 func (m ResourcesByKind) Add(resources ...Resource) {
@@ -89,11 +88,7 @@ func (m ResourcesByKind) List() ResourceList {
 	for _, list := range m {
 		all = append(all, list...)
 	}
-	// sort by type
-	sort.SliceStable(all, func(i, j int) bool {
-		return Key(all[i]) < Key(all[j])
-	})
-	return all
+	return all.Sort()
 }
 
 func (list ResourceList) Contains(list2 ResourceList) bool {
@@ -118,6 +113,17 @@ func (list ResourceList) Copy() ResourceList {
 		cpy = append(cpy, Clone(res))
 	}
 	return cpy
+}
+
+func (list ResourceList) Sort() ResourceList {
+	var sorted ResourceList
+	for _, res := range list {
+		sorted = append(sorted, Clone(res))
+	}
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return Key(sorted[i]) < Key(sorted[j])
+	})
+	return sorted
 }
 
 func (list ResourceList) Equal(list2 ResourceList) bool {
@@ -195,6 +201,15 @@ func (list ResourceList) EachErr(do func(resource Resource) error) error {
 		list[i] = resource
 	}
 	return nil
+}
+
+func (list ResourceList) ByCluster() map[string]ResourceList {
+	byCluster := make(map[string]ResourceList)
+	list.Each(func(resource Resource) {
+		byCluster[resource.GetMetadata().Cluster] = append(
+			byCluster[resource.GetMetadata().Cluster], resource)
+	})
+	return byCluster
 }
 
 func (list ResourceList) Find(namespace, name string) (Resource, error) {

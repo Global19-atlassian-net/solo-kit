@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/wrapper"
+
 	"github.com/hashicorp/consul/api"
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/solo-io/go-utils/kubeutils"
@@ -97,14 +99,15 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 			}
 		}
 
-		return kube.NewResourceClient(
+		client := kube.NewResourceClient(
 			opts.Crd,
 			crdClient,
 			opts.SharedCache,
 			inputResource,
 			namespaceWhitelist,
 			opts.ResyncPeriod,
-		), nil
+		)
+		return clusterClient(client, opts.Cluster), nil
 
 	case *ConsulResourceClientFactory:
 		return consul.NewResourceClient(opts.Consul, opts.RootKey, resourceType), nil
@@ -119,7 +122,11 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 		if opts.CustomConverter != nil {
 			return configmap.NewResourceClientWithConverter(opts.Clientset, resourceType, opts.Cache, opts.CustomConverter)
 		}
-		return configmap.NewResourceClient(opts.Clientset, resourceType, opts.Cache, opts.PlainConfigmaps)
+		client, err := configmap.NewResourceClient(opts.Clientset, resourceType, opts.Cache, opts.PlainConfigmaps)
+		if err != nil {
+			return nil, err
+		}
+		return clusterClient(client, opts.Cluster), nil
 	case *KubeSecretClientFactory:
 		if opts.Cache == nil {
 			return nil, errors.Errorf("invalid opts, secret client requires a kube core cache")
@@ -127,7 +134,11 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 		if opts.SecretConverter != nil {
 			return kubesecret.NewResourceClientWithSecretConverter(opts.Clientset, resourceType, opts.Cache, opts.SecretConverter)
 		}
-		return kubesecret.NewResourceClient(opts.Clientset, resourceType, opts.PlainSecrets, opts.Cache)
+		client, err := kubesecret.NewResourceClient(opts.Clientset, resourceType, opts.PlainSecrets, opts.Cache)
+		if err != nil {
+			return nil, err
+		}
+		return clusterClient(client, opts.Cluster), nil
 	case *VaultSecretClientFactory:
 		return vault.NewResourceClient(opts.Vault, opts.RootKey, resourceType), nil
 	}
@@ -229,4 +240,11 @@ type VaultSecretClientFactory struct {
 
 func (f *VaultSecretClientFactory) NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error) {
 	return newResourceClient(f, params)
+}
+
+func clusterClient(client clients.ResourceClient, cluster string) clients.ResourceClient {
+	if cluster == "" {
+		return client
+	}
+	return wrapper.NewClusterClient(client, cluster)
 }

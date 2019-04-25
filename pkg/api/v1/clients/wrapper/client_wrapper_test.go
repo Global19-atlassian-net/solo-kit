@@ -1,6 +1,8 @@
 package wrapper_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/memory"
@@ -8,12 +10,11 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
 	"github.com/solo-io/solo-kit/test/tests/generic"
-	"time"
 )
 
 var _ = Describe("ClientWrapper", func() {
 	var cluster *Client
-		clusterName := "clustr"
+	clusterName := "clustr"
 	BeforeEach(func() {
 		base := memory.NewResourceClient(memory.NewInMemoryResourceCache(), &v1.MockResource{})
 		cluster = NewClusterClient(base, clusterName)
