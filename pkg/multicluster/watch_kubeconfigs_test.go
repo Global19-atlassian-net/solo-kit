@@ -2,10 +2,11 @@ package multicluster_test
 
 import (
 	"context"
+	"time"
+
 	v12 "github.com/solo-io/solo-kit/api/multicluster/v1"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	v1 "github.com/solo-io/solo-kit/pkg/multicluster/v1"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -71,8 +72,8 @@ var _ = Describe("WatchKubeconfigs", func() {
 		kubeConfigs, errs, err := WatchKubeConfigs(context.TODO(), kubeClient, kubeCache)
 		Expect(err).NotTo(HaveOccurred())
 
-		var allKubeConfigs KubeConfigs
-		Eventually(func() (KubeConfigs, error) {
+		var allKubeConfigs v1.KubeConfigList
+		Eventually(func() (v1.KubeConfigList, error) {
 			select {
 			case kcs := <-kubeConfigs:
 				allKubeConfigs = kcs
@@ -84,8 +85,10 @@ var _ = Describe("WatchKubeconfigs", func() {
 			}
 		}, time.Minute).Should(HaveLen(2))
 
-		readKc1 := allKubeConfigs[kubeCfg1.Cluster].KubeConfig.Config
-		readKc2 := allKubeConfigs[kubeCfg2.Cluster].KubeConfig.Config
+		readKc1 := allKubeConfigs[0].KubeConfig.Config
+		readKc2 := allKubeConfigs[1].KubeConfig.Config
+		Expect(kubeCfg1.Cluster).To(Equal("remotecluster1"))
+		Expect(kubeCfg2.Cluster).To(Equal("remotecluster2"))
 		Expect(readKc1.Clusters).To(Equal(kubeCfg1.KubeConfig.Config.Clusters))
 		Expect(readKc2.Clusters).To(Equal(kubeCfg2.KubeConfig.Config.Clusters))
 	})
