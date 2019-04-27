@@ -63,9 +63,6 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 			return err
 		}
 
-		// aggregate its errors
-		go errutils.AggregateErrs(ctx, aggregatedErrs, errs, "multiwatch")
-
 		// read lists from the source channel,
 		// group its resources by type
 		go func() {
@@ -74,10 +71,22 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 				select {
 				case <-ctx.Done():
 					return
+				case err := <-errs:
+					// if the source starts returning errors, remove its list from the snasphot
+					access.Lock()
+					delete(listsByWatcher, watcher)
+					access.Unlock()
+					aggregatedErrs <- err
+					select {
+					case <-ctx.Done():
+						return
+					case out <- listsByWatcher.merge():
+					}
 				case list, ok := <-source:
 					if !ok {
 						return
 					}
+					// add/update the list to the snapshot
 					access.Lock()
 					listsByWatcher[watcher] = list
 					access.Unlock()

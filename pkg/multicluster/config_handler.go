@@ -2,13 +2,6 @@ package multicluster
 
 import (
 	"context"
-<<<<<<< HEAD
-	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/cache"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"sync"
-=======
 	"sync"
 
 	"github.com/solo-io/go-utils/errutils"
@@ -17,7 +10,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
->>>>>>> multicluster-restconfig-watcher
 )
 
 type RestConfigs map[string]*rest.Config
@@ -28,36 +20,6 @@ type ClusterHandler interface {
 }
 
 type RestConfigHandler struct {
-<<<<<<< HEAD
-	handlers []ClusterHandler
-	cache    RestConfigs
-	access   sync.RWMutex
-}
-
-func NewRestConfigHandler(handlers []ClusterHandler) *RestConfigHandler {
-	return &RestConfigHandler{handlers: handlers}
-}
-
-func (h *RestConfigHandler) Run(ctx context.Context, local *rest.Config, kubeClient kubernetes.Interface, kubeCache cache.KubeCoreCache) error {
-	kubeConfigs, errs, err := WatchKubeConfigs(ctx, kubeClient, kubeCache)
-	if err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case err := <-errs:
-			return err
-		case kcs := <-kubeConfigs:
-			restConfigs, err := makeRestConfigs(local, kcs)
-			if err != nil {
-				return err
-			}
-
-			h.handleNewRestConfigs(restConfigs)
-		}
-	}
-=======
 	kcWatcher KubeConfigWatcher
 	handlers  []ClusterHandler
 	cache     RestConfigs
@@ -95,7 +57,6 @@ func (h *RestConfigHandler) Run(ctx context.Context, local *rest.Config, kubeCli
 	}()
 
 	return errs, nil
->>>>>>> multicluster-restconfig-watcher
 }
 
 func (h *RestConfigHandler) handleNewRestConfigs(cfgs RestConfigs) {
@@ -136,16 +97,6 @@ func (h *RestConfigHandler) clusterRemoved(cluster string, cfg *rest.Config) {
 	}
 }
 
-<<<<<<< HEAD
-func makeRestConfigs(local *rest.Config, kcs KubeConfigs) (RestConfigs, error) {
-	cfgs := RestConfigs{LocalCluster: local}
-	for cluster, kc := range kcs {
-		restCfg, err := clientcmd.NewDefaultClientConfig(kc.Config, nil).ClientConfig()
-		if err != nil {
-			return nil, err
-		}
-		cfgs[cluster] = restCfg
-=======
 func parseRestConfigs(local *rest.Config, kcs v1.KubeConfigList) (RestConfigs, error) {
 	cfgs := RestConfigs{}
 	if local != nil {
@@ -162,7 +113,6 @@ func parseRestConfigs(local *rest.Config, kcs v1.KubeConfigList) (RestConfigs, e
 			return nil, err
 		}
 		cfgs[kc.Cluster] = restCfg
->>>>>>> multicluster-restconfig-watcher
 	}
 	return cfgs, nil
 }
