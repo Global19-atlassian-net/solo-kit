@@ -2,8 +2,8 @@ package secretconverter
 
 import (
 	"context"
-	"github.com/solo-io/go-utils/errors"
 
+	"github.com/solo-io/go-utils/errors"
 	apiv1 "github.com/solo-io/solo-kit/api/multicluster/v1"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kubesecret"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"

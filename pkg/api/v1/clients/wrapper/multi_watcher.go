@@ -2,10 +2,10 @@ package wrapper
 
 import (
 	"context"
-	"github.com/solo-io/go-utils/errutils"
+	"sync"
+
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
-	"sync"
 )
 
 /*
