@@ -15,7 +15,7 @@ import (
 )
 
 var _ = Describe("watchAggregator", func() {
-	var cluster1, cluster2, cluster3 , cluster4 *Client // add / remove later
+	var cluster1, cluster2, cluster3, cluster4 *Client // add / remove later
 	var watcher WatchAggregator
 	clusterName1 := "clustr1"
 	clusterName2 := "clustr2"
@@ -87,7 +87,6 @@ var _ = Describe("watchAggregator", func() {
 			&v1.MockResource{Metadata: core.Metadata{Namespace: "a", Name: "a", Cluster: "clustr3"}},
 			&v1.MockResource{Metadata: core.Metadata{Namespace: "a", Name: "b", Cluster: "clustr3"}},
 		}))
-
 
 		go func() {
 			watcher.RemoveWatch(cluster3)

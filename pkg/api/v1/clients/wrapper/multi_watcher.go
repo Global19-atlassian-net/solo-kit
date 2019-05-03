@@ -21,7 +21,7 @@ type WatchAggregator interface {
 type resourceSink chan resources.ResourceList
 
 type addWatch func(watcher clients.ResourceWatcher) error
-type removeWatch func(watcher clients.ResourceWatcher)
+type removeWatch func()
 
 type watchAggregator struct {
 	sources        map[clients.ResourceWatcher][]removeWatch // how to unsubscribe this watcher
@@ -32,6 +32,17 @@ type watchAggregator struct {
 	watchersAccess sync.RWMutex
 }
 
+/*
+warning to users:
+The Watch Aggregator sends snapshots composed from multiple source watches
+If a source watch fails to deliver resource lists and/or is returning errors on
+the watch channel, resources from that watcher will be removed from the merged
+resource list.
+
+Syncers should be aware that resources may be missing from snapshots if one
+of the source watches is not sending snapshots, e.g. on an unreachable remote cluster.
+We should be careful when invalidating user config or potentially removing resources in these cases
+*/
 func NewWatchAggregator() WatchAggregator {
 	sources := make(map[clients.ResourceWatcher][]removeWatch)
 	sinks := make(map[resourceSink]addWatch)
@@ -49,8 +60,15 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 	listsByWatcher := make(resourcesByWatcher)
 	access := sync.RWMutex{}
 
+	// create a wait group for sources
+	// so we can wait for all sources watches to close
+	// before closing the sink channel (when this watch is canceled)
+	sourceWatches := sync.WaitGroup{}
+
 	// construct a func for adding an input watcher to this sink
 	addWatch := func(watcher clients.ResourceWatcher) (err error) {
+		sourceWatches.Add(1)
+
 		// this function starts a watch for the watcher using the root context
 		// we want to cancel it if :
 		// the root context is cancelled
@@ -58,7 +76,11 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 		ctx, cancel := context.WithCancel(opts.Ctx)
 
 		// start a watch for the watcher on this namespace
-		source, errs, err := watcher.Watch(namespace, clients.WatchOpts{Ctx: ctx, RefreshRate: opts.RefreshRate})
+		source, errs, err := watcher.Watch(namespace, clients.WatchOpts{
+			Ctx:         ctx,
+			RefreshRate: opts.RefreshRate,
+			Selector:    opts.Selector,
+		})
 		if err != nil {
 			return err
 		}
@@ -67,6 +89,8 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 		// group its resources by type
 		go func() {
 			defer cancel()
+			defer sourceWatches.Done()
+
 			for {
 				select {
 				case <-ctx.Done():
@@ -75,12 +99,13 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 					// if the source starts returning errors, remove its list from the snasphot
 					access.Lock()
 					delete(listsByWatcher, watcher)
+					mergedList := listsByWatcher.merge()
 					access.Unlock()
 					aggregatedErrs <- err
 					select {
 					case <-ctx.Done():
 						return
-					case out <- listsByWatcher.merge():
+					case out <- mergedList:
 					}
 				case list, ok := <-source:
 					if !ok {
@@ -89,18 +114,19 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 					// add/update the list to the snapshot
 					access.Lock()
 					listsByWatcher[watcher] = list
+					mergedList := listsByWatcher.merge()
 					access.Unlock()
 					select {
 					case <-ctx.Done():
 						return
-					case out <- listsByWatcher.merge():
+					case out <- mergedList:
 					}
 				}
 			}
 		}()
 
 		// construct a function for removing this watcher from this sink
-		removeWatch := func(watcher clients.ResourceWatcher) {
+		removeWatch := func() {
 			// remove the watcher+resources from the snapshot
 			access.Lock()
 			delete(listsByWatcher, watcher)
@@ -135,6 +161,8 @@ func (c *watchAggregator) Watch(namespace string, opts clients.WatchOpts) (<-cha
 		c.sinksAccess.Lock()
 		delete(c.sinks, out)
 		c.sinksAccess.Unlock()
+		// wait for source watches to be closed before closing the sinks
+		sourceWatches.Wait()
 		close(out)
 		close(aggregatedErrs)
 	}()
@@ -166,7 +194,7 @@ func (c *watchAggregator) RemoveWatch(w clients.ResourceWatcher) {
 	c.sourcesAccess.RLock()
 	defer c.sourcesAccess.RUnlock()
 	for _, removeWatcher := range c.sources[w] {
-		removeWatcher(w)
+		removeWatcher()
 	}
 }
 
