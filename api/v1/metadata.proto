@@ -21,6 +21,10 @@ message Metadata {
     // Namespace is used for the namespacing of resources.
     string namespace = 3;
 
+    // GenerateName is an optional prefix, used by the server, to generate a
+    // unique name ONLY IF the Name field has not been provided.
+    string generate_name = 8;
+
     // Cluster indicates the cluster this resource belongs to
     // Cluster is only applicable in certain contexts, e.g. Kubernetes
     // An empty string here refers to the local cluster
