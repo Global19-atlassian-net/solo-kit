@@ -182,7 +182,7 @@ func (rc *ResourceClient) Read(namespace, name string, opts clients.ReadOpts) (r
 
 func (rc *ResourceClient) Write(resource resources.Resource, opts clients.WriteOpts) (resources.Resource, error) {
 	opts = opts.WithDefaults()
-	if err := resources.Validate(resource); err != nil {
+	if err := resources.ValidateForWrite(resource); err != nil {
 		return nil, errors.Wrapf(err, "validation error")
 	}
 	meta := resource.GetMetadata()
@@ -207,13 +207,15 @@ func (rc *ResourceClient) Write(resource resources.Resource, opts clients.WriteO
 		}
 	}
 
+	var written *v1.Resource
 	if rc.exist(ctx, meta.Namespace, meta.Name) {
 		if !opts.OverwriteExisting {
 			return nil, errors.NewExistErr(meta)
 		}
 		stats.Record(ctx, MUpdates.M(1), MInFlight.M(1))
 		defer stats.Record(ctx, MInFlight.M(-1))
-		if _, updateErr := rc.crdClientset.ResourcesV1().Resources(meta.Namespace).Update(resourceCrd); updateErr != nil {
+		var updateErr error
+		if written, updateErr = rc.crdClientset.ResourcesV1().Resources(meta.Namespace).Update(resourceCrd); updateErr != nil {
 			original, err := rc.crdClientset.ResourcesV1().Resources(meta.Namespace).Get(meta.Name, metav1.GetOptions{})
 			if err == nil {
 				return nil, errors.Wrapf(updateErr, "updating kube resource %v:%v (want %v)", resourceCrd.Name, resourceCrd.ResourceVersion, original.ResourceVersion)
@@ -223,7 +225,8 @@ func (rc *ResourceClient) Write(resource resources.Resource, opts clients.WriteO
 	} else {
 		stats.Record(ctx, MCreates.M(1), MInFlight.M(1))
 		defer stats.Record(ctx, MInFlight.M(-1))
-		if _, err := rc.crdClientset.ResourcesV1().Resources(meta.Namespace).Create(resourceCrd); err != nil {
+		var err error
+		if written, err = rc.crdClientset.ResourcesV1().Resources(meta.Namespace).Create(resourceCrd); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				return nil, errors.NewExistErr(meta)
 			}
@@ -232,7 +235,7 @@ func (rc *ResourceClient) Write(resource resources.Resource, opts clients.WriteO
 	}
 
 	// return a read object to update the resource version
-	return rc.Read(meta.Namespace, meta.Name, clients.ReadOpts{Ctx: opts.Ctx})
+	return rc.Read(written.Namespace, written.Name, clients.ReadOpts{Ctx: opts.Ctx})
 }
 
 func (rc *ResourceClient) Delete(namespace, name string, opts clients.DeleteOpts) error {
