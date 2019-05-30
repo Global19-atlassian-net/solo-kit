@@ -143,7 +143,7 @@ func (rc *ResourceClient) Read(namespace, name string, opts clients.ReadOpts) (r
 
 func (rc *ResourceClient) Write(resource resources.Resource, opts clients.WriteOpts) (resources.Resource, error) {
 	opts = opts.WithDefaults()
-	if err := resources.Validate(resource); err != nil {
+	if err := resources.ValidateForWrite(resource); err != nil {
 		return nil, errors.Wrapf(err, "validation error")
 	}
 	meta := resource.GetMetadata()
@@ -164,6 +164,11 @@ func (rc *ResourceClient) Write(resource resources.Resource, opts clients.WriteO
 	resource = resources.Clone(resource)
 	// initialize or increment resource version
 	meta.ResourceVersion = newOrIncrementResourceVer(meta.ResourceVersion)
+	// generate a name if one does not exist
+	if meta.Name == "" {
+		meta.Name = meta.GenerateName + "TODO"
+	}
+
 	resource.SetMetadata(meta)
 
 	rc.cache.Set(key, resource)
