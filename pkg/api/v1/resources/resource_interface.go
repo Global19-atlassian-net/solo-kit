@@ -411,6 +411,13 @@ func Validate(resource Resource) error {
 	return ValidateName(resource.GetMetadata().Name)
 }
 
+func ValidateForWrite(resource Resource) error {
+	if resource.GetMetadata().Name == "" {
+		return ValidateName(resource.GetMetadata().GenerateName)
+	}
+	return ValidateName(resource.GetMetadata().Name)
+}
+
 func ValidateName(name string) error {
 	errs := validation.IsDNS1123Subdomain(name)
 	if len(name) < 1 {
