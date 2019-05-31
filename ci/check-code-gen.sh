@@ -8,6 +8,8 @@ if [ ! -f .gitignore ]; then
   echo "_output" > .gitignore
 fi
 
+PATH=/workspace/go/bin:$PATH
+
 set +e
 
 make generated-code -B
