@@ -8,13 +8,6 @@ if [ ! -f .gitignore ]; then
   echo "_output" > .gitignore
 fi
 
-git init
-git add .
-git commit -m "set up dummy repo for diffing" -q
-
-
-PATH=/workspace/gopath/bin:$PATH
-
 set +e
 
 make generated-code -B
