@@ -2,9 +2,12 @@
 
 
 [[projects]]
-  digest = "1:5ad08b0e14866764a6d7475eb11c9cf05cad9a52c442593bdfa544703ff77f61"
+  digest = "1:eb085fe66643666cfd87911005a2445e796a1c41373614e89a1fbca61749b8fd"
   name = "cloud.google.com/go"
-  packages = ["compute/metadata"]
+  packages = [
+    "compute/metadata",
+    "container",
+  ]
   pruneopts = "UT"
   revision = "0ebda48a7f143b1cce9eb37a8c1106ac762a3430"
   version = "v0.34.0"
@@ -602,18 +605,21 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:64c18dbf9c05549d0b0189cb0325e2145d788d1acc05735103746589c61dcff1"
+  digest = "1:1ed30ae740ba016f4b74c3558d0102f1b2053f8167a93545521987ce6e6e926d"
   name = "go.opencensus.io"
   packages = [
     ".",
     "internal",
     "internal/tagencoding",
+    "plugin/ochttp",
+    "plugin/ochttp/propagation/b3",
     "stats",
     "stats/internal",
     "stats/view",
     "tag",
     "trace",
     "trace/internal",
+    "trace/propagation",
     "trace/tracestate",
   ]
   pruneopts = "UT"
@@ -774,6 +780,24 @@
   ]
   pruneopts = "UT"
   revision = "8a6051197512ff9cbf65108d80613b631fe0b4f3"
+
+[[projects]]
+  digest = "1:99cdf6e71e735de79513602bc6b1e8228c9ceac0cf2498298f031fe1458f1a9c"
+  name = "google.golang.org/api"
+  packages = [
+    "container/v1",
+    "gensupport",
+    "googleapi",
+    "googleapi/internal/uritemplates",
+    "googleapi/transport",
+    "internal",
+    "option",
+    "transport/http",
+    "transport/http/internal/propagation",
+  ]
+  pruneopts = "UT"
+  revision = "721295fe20d585ce7e948146f82188429d14da33"
+  version = "v0.5.0"
 
 [[projects]]
   digest = "1:fa026a5c59bd2df343ec4a3538e6288dcf4e2ec5281d743ae82c120affe6926a"
@@ -1222,6 +1246,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go/container",
     "github.com/bxcodec/faker",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2",
     "github.com/envoyproxy/go-control-plane/envoy/api/v2/core",
