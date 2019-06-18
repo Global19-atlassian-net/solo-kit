@@ -214,7 +214,7 @@ func genMockForFile(file code_generator.File, outDir, absoluteRoot string) ([]by
 	dest := filepath.Join(outDir, "mocks", file.Filename)
 	path = strings.Replace(path, absoluteRoot, ".", 1)
 	dest = strings.Replace(dest, absoluteRoot, ".", 1)
-	return exec.Command("mockgen", fmt.Sprintf("-source=%s", path), fmt.Sprintf("-destination=%s", dest), "-package=mocks").CombinedOutput()
+	return exec.Command("mockgen", fmt.Sprintf("-source=%s", path), fmt.Sprintf("-destination=%s", dest), "-package=mocks", "CGO_ENABLED=0").CombinedOutput()
 }
 
 func containsAny(str string, slice []string) bool {
