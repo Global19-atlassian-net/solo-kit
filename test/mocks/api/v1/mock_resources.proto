@@ -42,7 +42,7 @@ Mock resources for goofin off
 message MockResource {
 
     option (core.solo.io.resource).short_name = "mk";
-    option (core.solo.io.resource).plural_name = "mocks";
+    option (core.solo.io.resource).plural_name = "mock_resources";
 
     core.solo.io.Status status = 6 [(gogoproto.nullable) = false];
     core.solo.io.Metadata metadata = 7 [(gogoproto.nullable) = false];

@@ -148,11 +148,11 @@ var (
 		ClusterResourceGVK.Kind,
 		"clr",
 		true,
-		&ClusterResource{})
+		&ClusterResource{}, nil, nil)
 )
 
 func init() {
 	if err := crd.AddCrd(ClusterResourceCrd); err != nil {
-		log.Fatalf("could not add crd to global registry")
+		log.Fatalf("could not add crd %v to global registry", ClusterResourceCrd)
 	}
 }

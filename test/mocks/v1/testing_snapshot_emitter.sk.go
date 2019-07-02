@@ -182,7 +182,7 @@ func (c *testingEmitter) Snapshots(watchNamespaces []string, opts clients.WatchO
 		done.Add(1)
 		go func(namespace string) {
 			defer done.Done()
-			errutils.AggregateErrs(ctx, errs, mockResourceErrs, namespace+"-mocks")
+			errutils.AggregateErrs(ctx, errs, mockResourceErrs, namespace+"-mockResources")
 		}(namespace)
 		/* Setup namespaced watch for FakeResource */
 		fakeResourceNamespacesChan, fakeResourceErrs, err := c.fakeResource.Watch(namespace, opts)
@@ -296,7 +296,7 @@ func (c *testingEmitter) Snapshots(watchNamespaces []string, opts clients.WatchO
 			sentSnapshot := currentSnapshot.Clone()
 			snapshots <- &sentSnapshot
 		}
-		mocksByNamespace := make(map[string]MockResourceList)
+		mockResourcesByNamespace := make(map[string]MockResourceList)
 		fakesByNamespace := make(map[string]FakeResourceList)
 		anothermockresourcesByNamespace := make(map[string]AnotherMockResourceList)
 		mctsByNamespace := make(map[string]MockCustomTypeList)
@@ -322,12 +322,12 @@ func (c *testingEmitter) Snapshots(watchNamespaces []string, opts clients.WatchO
 				namespace := mockResourceNamespacedList.namespace
 
 				// merge lists by namespace
-				mocksByNamespace[namespace] = mockResourceNamespacedList.list
+				mockResourcesByNamespace[namespace] = mockResourceNamespacedList.list
 				var mockResourceList MockResourceList
-				for _, mocks := range mocksByNamespace {
-					mockResourceList = append(mockResourceList, mocks...)
+				for _, mockResources := range mockResourcesByNamespace {
+					mockResourceList = append(mockResourceList, mockResources...)
 				}
-				currentSnapshot.Mocks = mockResourceList.Sort()
+				currentSnapshot.MockResources = mockResourceList.Sort()
 			case fakeResourceNamespacedList := <-fakeResourceChan:
 				record()
 

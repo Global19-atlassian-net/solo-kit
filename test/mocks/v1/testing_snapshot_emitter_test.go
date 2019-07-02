@@ -131,18 +131,18 @@ var _ = Describe("V1Emitter", func() {
 			MockResource
 		*/
 
-		assertSnapshotMocks := func(expectMocks MockResourceList, unexpectMocks MockResourceList) {
+		assertSnapshotMockResources := func(expectMockResources MockResourceList, unexpectMockResources MockResourceList) {
 		drain:
 			for {
 				select {
 				case snap = <-snapshots:
-					for _, expected := range expectMocks {
-						if _, err := snap.Mocks.Find(expected.GetMetadata().Ref().Strings()); err != nil {
+					for _, expected := range expectMockResources {
+						if _, err := snap.MockResources.Find(expected.GetMetadata().Ref().Strings()); err != nil {
 							continue drain
 						}
 					}
-					for _, unexpected := range unexpectMocks {
-						if _, err := snap.Mocks.Find(unexpected.GetMetadata().Ref().Strings()); err == nil {
+					for _, unexpected := range unexpectMockResources {
+						if _, err := snap.MockResources.Find(unexpected.GetMetadata().Ref().Strings()); err == nil {
 							continue drain
 						}
 					}
@@ -162,27 +162,27 @@ var _ = Describe("V1Emitter", func() {
 		mockResource1b, err := mockResourceClient.Write(NewMockResource(namespace2, name1), clients.WriteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(MockResourceList{mockResource1a, mockResource1b}, nil)
+		assertSnapshotMockResources(MockResourceList{mockResource1a, mockResource1b}, nil)
 		mockResource2a, err := mockResourceClient.Write(NewMockResource(namespace1, name2), clients.WriteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 		mockResource2b, err := mockResourceClient.Write(NewMockResource(namespace2, name2), clients.WriteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b}, nil)
+		assertSnapshotMockResources(MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b}, nil)
 
 		err = mockResourceClient.Delete(mockResource2a.GetMetadata().Namespace, mockResource2a.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 		err = mockResourceClient.Delete(mockResource2b.GetMetadata().Namespace, mockResource2b.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(MockResourceList{mockResource1a, mockResource1b}, MockResourceList{mockResource2a, mockResource2b})
+		assertSnapshotMockResources(MockResourceList{mockResource1a, mockResource1b}, MockResourceList{mockResource2a, mockResource2b})
 
 		err = mockResourceClient.Delete(mockResource1a.GetMetadata().Namespace, mockResource1a.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 		err = mockResourceClient.Delete(mockResource1b.GetMetadata().Namespace, mockResource1b.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(nil, MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b})
+		assertSnapshotMockResources(nil, MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b})
 
 		/*
 			FakeResource
@@ -476,18 +476,18 @@ var _ = Describe("V1Emitter", func() {
 			MockResource
 		*/
 
-		assertSnapshotMocks := func(expectMocks MockResourceList, unexpectMocks MockResourceList) {
+		assertSnapshotMockResources := func(expectMockResources MockResourceList, unexpectMockResources MockResourceList) {
 		drain:
 			for {
 				select {
 				case snap = <-snapshots:
-					for _, expected := range expectMocks {
-						if _, err := snap.Mocks.Find(expected.GetMetadata().Ref().Strings()); err != nil {
+					for _, expected := range expectMockResources {
+						if _, err := snap.MockResources.Find(expected.GetMetadata().Ref().Strings()); err != nil {
 							continue drain
 						}
 					}
-					for _, unexpected := range unexpectMocks {
-						if _, err := snap.Mocks.Find(unexpected.GetMetadata().Ref().Strings()); err == nil {
+					for _, unexpected := range unexpectMockResources {
+						if _, err := snap.MockResources.Find(unexpected.GetMetadata().Ref().Strings()); err == nil {
 							continue drain
 						}
 					}
@@ -507,27 +507,27 @@ var _ = Describe("V1Emitter", func() {
 		mockResource1b, err := mockResourceClient.Write(NewMockResource(namespace2, name1), clients.WriteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(MockResourceList{mockResource1a, mockResource1b}, nil)
+		assertSnapshotMockResources(MockResourceList{mockResource1a, mockResource1b}, nil)
 		mockResource2a, err := mockResourceClient.Write(NewMockResource(namespace1, name2), clients.WriteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 		mockResource2b, err := mockResourceClient.Write(NewMockResource(namespace2, name2), clients.WriteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b}, nil)
+		assertSnapshotMockResources(MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b}, nil)
 
 		err = mockResourceClient.Delete(mockResource2a.GetMetadata().Namespace, mockResource2a.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 		err = mockResourceClient.Delete(mockResource2b.GetMetadata().Namespace, mockResource2b.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(MockResourceList{mockResource1a, mockResource1b}, MockResourceList{mockResource2a, mockResource2b})
+		assertSnapshotMockResources(MockResourceList{mockResource1a, mockResource1b}, MockResourceList{mockResource2a, mockResource2b})
 
 		err = mockResourceClient.Delete(mockResource1a.GetMetadata().Namespace, mockResource1a.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 		err = mockResourceClient.Delete(mockResource1b.GetMetadata().Namespace, mockResource1b.GetMetadata().Name, clients.DeleteOpts{Ctx: ctx})
 		Expect(err).NotTo(HaveOccurred())
 
-		assertSnapshotMocks(nil, MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b})
+		assertSnapshotMockResources(nil, MockResourceList{mockResource1a, mockResource1b, mockResource2a, mockResource2b})
 
 		/*
 			FakeResource

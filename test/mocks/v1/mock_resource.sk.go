@@ -143,17 +143,17 @@ var (
 		Kind:    "MockResource",
 	}
 	MockResourceCrd = crd.NewCrd(
-		"mocks",
+		"mockresources",
 		MockResourceGVK.Group,
 		MockResourceGVK.Version,
 		MockResourceGVK.Kind,
 		"mk",
 		false,
-		&MockResource{})
+		&MockResource{}, nil, nil)
 )
 
 func init() {
 	if err := crd.AddCrd(MockResourceCrd); err != nil {
-		log.Fatalf("could not add crd to global registry")
+		log.Fatalf("could not add crd %v to global registry", MockResourceCrd)
 	}
 }

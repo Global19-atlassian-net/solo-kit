@@ -13,17 +13,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 )
 
 // TODO(ilackarms): evaluate this fix for concurrent map access in k8s.io/apimachinery/pkg/runtime.SchemaBuider
 var registerLock sync.Mutex
 
 type CrdMeta struct {
-	Plural        string
-	Group         string
-	KindName      string
-	ShortName     string
-	ClusterScoped bool
+	Plural             string
+	Group              string
+	KindName           string
+	ShortName          string
+	ClusterScoped      bool
+	KubeResourceSingle runtime.Object
+	KubeResourceList   runtime.Object
 }
 
 type Version struct {
@@ -48,24 +52,44 @@ func NewCrd(
 	kindName string,
 	shortName string,
 	clusterScoped bool,
-	objType runtime.Object) Crd {
+	protoType runtime.Object, kubeResource runtime.Object, kubeList runtime.Object) Crd {
 	c := Crd{
 		CrdMeta: CrdMeta{
-			Plural:        plural,
-			Group:         group,
-			KindName:      kindName,
-			ShortName:     shortName,
-			ClusterScoped: clusterScoped,
+			Plural:             plural,
+			Group:              group,
+			KindName:           kindName,
+			ShortName:          shortName,
+			ClusterScoped:      clusterScoped,
+			KubeResourceList:   kubeList,
+			KubeResourceSingle: kubeResource,
 		},
 		Version: Version{
 			Version: version,
-			Type:    objType,
+			Type:    protoType,
 		},
+	}
+	if kubeResource == nil {
+		c.KubeResourceSingle = &v1.Resource{}
+	}
+	if kubeList == nil {
+		c.KubeResourceList = &v1.ResourceList{}
 	}
 	if err := c.AddToScheme(scheme.Scheme); err != nil {
 		log.Panicf("error while adding [%v] CRD to scheme: %v", c.FullName(), err)
 	}
 	return c
+}
+
+func (d Crd) Webhook() error {
+	cfg, err := ctrl.GetConfig()
+	if err != nil {
+		return err
+	}
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	err = builder.WebhookManagedBy(mgr).For(d.KubeResourceSingle).Complete()
+	return mgr.GetWebhookServer().Start(ctrl.SetupSignalHandler())
 }
 
 func (d Crd) Register(apiexts apiexts.Interface) error {
@@ -131,8 +155,8 @@ func (d Crd) Resource(resource string) schema.GroupResource {
 
 func (d Crd) SchemeBuilder() runtime.SchemeBuilder {
 	return runtime.NewSchemeBuilder(func(scheme *runtime.Scheme) error {
-		scheme.AddKnownTypeWithName(d.GroupVersion().WithKind(d.KindName), &v1.Resource{})
-		scheme.AddKnownTypeWithName(d.GroupVersion().WithKind(d.KindName+"List"), &v1.ResourceList{})
+		scheme.AddKnownTypeWithName(d.GroupVersion().WithKind(d.KindName), d.KubeResourceSingle)
+		scheme.AddKnownTypeWithName(d.GroupVersion().WithKind(d.KindName+"List"), d.KubeResourceList)
 
 		metav1.AddToGroupVersion(scheme, d.GroupVersion())
 		return nil

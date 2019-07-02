@@ -1,0 +1,6 @@
+apiVersion: testing.solo.io/v2alpha1
+kind: MockResource
+metadata:
+  name: one
+  namespace: default
+spec: {}

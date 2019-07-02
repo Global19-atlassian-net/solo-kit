@@ -213,12 +213,12 @@ var (
 		{{ .Name }}GVK.Kind,
 		"{{ .ShortName }}",
 		{{ .ClusterScoped }},
-		&{{ .Name }}{})
+		&{{ .Name }}{},  nil, nil)
 )
 
 func init() {
 	if err := crd.AddCrd({{ .Name }}Crd); err != nil {
-		log.Fatalf("could not add crd to global registry")
+		log.Fatalf("could not add crd %v to global registry", {{ .Name }}Crd)
 	}
 }
 

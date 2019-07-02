@@ -10,7 +10,7 @@ import (
 )
 
 type MockResourceWatcher interface {
-	// watch namespace-scoped Mocks
+	// watch namespace-scoped MockResources
 	Watch(namespace string, opts clients.WatchOpts) (<-chan MockResourceList, <-chan error, error)
 }
 
@@ -99,19 +99,19 @@ func (client *mockResourceClient) Watch(namespace string, opts clients.WatchOpts
 	if initErr != nil {
 		return nil, nil, initErr
 	}
-	mocksChan := make(chan MockResourceList)
+	mockResourcesChan := make(chan MockResourceList)
 	go func() {
 		for {
 			select {
 			case resourceList := <-resourcesChan:
-				mocksChan <- convertToMockResource(resourceList)
+				mockResourcesChan <- convertToMockResource(resourceList)
 			case <-opts.Ctx.Done():
-				close(mocksChan)
+				close(mockResourcesChan)
 				return
 			}
 		}
 	}()
-	return mocksChan, errs, nil
+	return mockResourcesChan, errs, nil
 }
 
 func convertToMockResource(resources resources.ResourceList) MockResourceList {
