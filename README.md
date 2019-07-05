@@ -23,24 +23,42 @@ See `test/mock_resources.proto` and `test/generate.go` for an example of how to 
 - run `solo-kit-gen` recursively at the root of an `api` directory containing one or more `solo-kit.json` files
 - generated files have the `.sk.go` suffix (generated test files do not include this suffix)
 
-## `solo-kit-gen`
+## Developer Setup
 
-**Note**: `solo-kit-gen` will become deprecated in favor of a more robustly featured `solo-kit` CLI 
-sometime in the near future.
+Solo-Kit has the following requirements:
+
+- `git`
+- `go`
+- `dep`
+- `protoc` (`solo-io` projects are built using version `3.6.1`)
+- the `github.com/gogo/protobuf` go package
+
+To install all the requirements, run the following:
+
+On macOS:
+
 ```bash
+# install protoc
+curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-osx-x86_64.zip
+unzip protoc-3.6.1-osx-x86_64.zip
+sudo mv bin/protoc /usr/local/bin/
+rm -rf bin include protoc-3.6.1-osx-x86_64.zip readme.txt
 
+# install go
+curl https://raw.githubusercontent.com/canha/golang-tools-install-script/master/goinstall.sh | bash
 
-./solo-kit-gen -h
-Usage of ./solo-kit-gen:
-  -docs
-        generate docs as well (default true)
-  -gogo
-        compile normal gogo protos (default true)
-  -i value
-        import additional directories as proto roots (repeated flag, specify as many times as desired)
-  -r string
-        path to project absoluteRoot
-  -s value
-        skip generating for this directory (repeated flag, specify as many times as desired)
+```
+
+On linux:
+```bash
+curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip
+unzip protoc-3.6.1-linux-x86_64.zip
+sudo mv bin/protoc /usr/local/bin/
+rm -rf bin include protoc-3.6.1-linux-x86_64.zip readme.txt
+
+# install go
+curl https://raw.githubusercontent.com/canha/golang-tools-install-script/master/goinstall.sh | bash
+
+# install dep
 
 ```
