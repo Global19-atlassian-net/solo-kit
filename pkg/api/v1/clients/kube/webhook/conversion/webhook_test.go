@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -29,14 +28,6 @@ type testConverter struct {
 }
 
 func (*testConverter) Convert(src crd.SoloKitCrd, dst crd.SoloKitCrd) error {
-	_, ok := src.(*v1.MockResource)
-	if !ok {
-		return errors.New("can't translate src")
-	}
-	_, ok = dst.(*v2alpha1.MockResource)
-	if !ok {
-		return errors.New("can't translate dst")
-	}
 	return nil
 }
 
@@ -46,7 +37,7 @@ var _ = Describe("Conversion Webhook", func() {
 		kubeWebhook  server.KubeWebhook
 		respRecorder *httptest.ResponseRecorder
 	)
-	
+
 	BeforeEach(func() {
 		var err error
 		kubeWebhook, err = conversion.NewKubeWebhook(context.TODO(), nil, v2alpha1.MockResourceGVK.GroupKind(), &testConverter{})
@@ -82,20 +73,20 @@ var _ = Describe("Conversion Webhook", func() {
 		return v1.MockResourceCrd.KubeResource(mockResource)
 	}
 
-	// makeV2Obj := func() *solov1.Resource {
-	// 	mockResource := &v2alpha1.MockResource{
-	// 		Metadata: core.Metadata{
-	// 			Name:      "two",
-	// 			Namespace: "two",
-	// 		},
-	// 	}
-	// 	return v2alpha1.MockResourceCrd.KubeResource(mockResource)
-	// }
+	makeV2Obj := func() *solov1.Resource {
+		mockResource := &v2alpha1.MockResource{
+			Metadata: core.Metadata{
+				Name:      "two",
+				Namespace: "two",
+			},
+		}
+		return v2alpha1.MockResourceCrd.KubeResource(mockResource)
+	}
 
 	It("should convert spoke to hub successfully", func() {
 
 		v1Obj := makeV1Obj()
-		// v2obj := makeV2Obj()
+		v2obj := makeV2Obj()
 
 		convReq := &apix.ConversionReview{
 			TypeMeta: metav1.TypeMeta{},
@@ -105,20 +96,17 @@ var _ = Describe("Conversion Webhook", func() {
 					{
 						Object: v1Obj,
 					},
-					// {
-					// 	Object: v2obj,
-					// },
+					{
+						Object: v2obj,
+					},
 				},
 			},
 		}
 
 		convReview := doRequest(convReq)
 
-		Expect(convReview.Response.ConvertedObjects).To(HaveLen(1))
+		Expect(convReview.Response.ConvertedObjects).To(HaveLen(2))
 		Expect(convReview.Response.Result.Status).To(Equal(metav1.StatusSuccess))
-		// got, _, err := decoder.Decode(convReview.Response.ConvertedObjects[0].Raw)
-		// Expect(err).NotTo(HaveOccurred())
-		// Expect(got).To(Equal(expected))
 	})
 
 })
