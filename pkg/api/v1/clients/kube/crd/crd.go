@@ -23,6 +23,20 @@ var (
 	}
 )
 
+type Ladder interface {
+	Climb(src SoloKitCrd, dst SoloKitCrd) error
+	Descend(src SoloKitCrd, dst SoloKitCrd) error
+}
+
+type Converter interface {
+	Convert(src SoloKitCrd, dst SoloKitCrd) error
+}
+
+type SoloKitCrd interface {
+	runtime.Object
+	resources.InputResource
+}
+
 type CrdMeta struct {
 	Plural        string
 	Group         string
@@ -53,11 +67,6 @@ func (m *MultiVersionCrd) GetVersion(requested string) (*Version, error) {
 		}
 	}
 	return nil, VersionNotFoundError(requested)
-}
-
-type SoloKitCrd interface {
-	runtime.Object
-	resources.InputResource
 }
 
 func NewCrd(

@@ -1,4 +1,4 @@
-package webhook
+package conversion
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/solo-io/go-utils/errors"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	v1 "github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd/solo.io/v1"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/server"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/pkg/utils/kubeutils"
@@ -21,32 +22,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-type Ladder interface {
-	Climb(src resources.Resource, dst resources.Resource) error
-	Descend(src resources.Resource, dst resources.Resource) error
-}
-
 type kubeWebhook struct {
-	decoder *Decoder
+	decoder *server.Decoder
 	scheme  *runtime.Scheme
 
 	ctx      context.Context
-	server   *Server
+	server   *server.Server
 	resource *crd.MultiVersionCrd
 
-	converter Converter
+	converter crd.Converter
 }
 
-type KubeWebhook interface {
-	http.Handler
-	InjectScheme(s *runtime.Scheme) error
-}
-
-type Converter interface {
-	Convert(src resources.Resource, dst resources.Resource) error
-}
-
-func NewKubeWebhook(ctx context.Context, server *Server, gk schema.GroupKind, converter Converter) (*kubeWebhook, error) {
+func NewKubeWebhook(ctx context.Context, server *server.Server, gk schema.GroupKind, converter crd.Converter) (*kubeWebhook, error) {
 	resource, err := crd.GetMultiVersionCrd(gk)
 	if err != nil {
 		return nil, err
@@ -64,7 +51,7 @@ func NewKubeWebhook(ctx context.Context, server *Server, gk schema.GroupKind, co
 func (k *kubeWebhook) InjectScheme(s *runtime.Scheme) error {
 	var err error
 	k.scheme = s
-	k.decoder, err = NewDecoder(s)
+	k.decoder, err = server.NewDecoder(s)
 	if err != nil {
 		return err
 	}

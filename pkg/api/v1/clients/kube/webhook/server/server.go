@@ -1,4 +1,4 @@
-package webhook
+package server
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/solo-io/go-utils/contextutils"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/certwatcher"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -23,6 +24,17 @@ const (
 
 // DefaultPort is the default port that the webhook server serves.
 var DefaultPort = 443
+
+
+type KubeWebhook interface {
+	http.Handler
+	InjectScheme(s *runtime.Scheme) error
+}
+
+type WebhookServer interface {
+	Register(path string, hook http.Handler)
+	Start(ctx context.Context) error
+}
 
 // Server is an admission webhook server that can serve traffic and
 // generates related k8s resources for deploying.

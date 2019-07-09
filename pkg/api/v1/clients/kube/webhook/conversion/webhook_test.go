@@ -1,4 +1,4 @@
-package webhook_test
+package conversion_test
 
 import (
 	"bytes"
@@ -11,10 +11,11 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd/client/clientset/versioned/scheme"
 	solov1 "github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd/solo.io/v1"
-	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook"
-	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/conversion"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/server"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
 	"github.com/solo-io/solo-kit/test/mocks/v2alpha1"
@@ -27,7 +28,7 @@ import (
 type testConverter struct {
 }
 
-func (*testConverter) Convert(src resources.Resource, dst resources.Resource) error {
+func (*testConverter) Convert(src crd.SoloKitCrd, dst crd.SoloKitCrd) error {
 	_, ok := src.(*v1.MockResource)
 	if !ok {
 		return errors.New("can't translate src")
@@ -42,23 +43,18 @@ func (*testConverter) Convert(src resources.Resource, dst resources.Resource) er
 var _ = Describe("Conversion Webhook", func() {
 
 	var (
-		kubeWebhook  webhook.KubeWebhook
+		kubeWebhook  server.KubeWebhook
 		respRecorder *httptest.ResponseRecorder
 	)
-
-	// var decoder *Decoder
-
+	
 	BeforeEach(func() {
 		var err error
-		kubeWebhook, err = webhook.NewKubeWebhook(context.TODO(), nil, v2alpha1.MockResourceGVK.GroupKind(), &testConverter{})
+		kubeWebhook, err = conversion.NewKubeWebhook(context.TODO(), nil, v2alpha1.MockResourceGVK.GroupKind(), &testConverter{})
 		Expect(err).NotTo(HaveOccurred())
 		respRecorder = &httptest.ResponseRecorder{
 			Body: bytes.NewBuffer(nil),
 		}
 		Expect(kubeWebhook.InjectScheme(scheme.Scheme)).NotTo(HaveOccurred())
-		// var err error
-		// decoder, err = NewDecoder(scheme.Scheme)
-		// Expect(err).NotTo(HaveOccurred())
 	})
 
 	doRequest := func(convReq *apix.ConversionReview) *apix.ConversionReview {
@@ -86,20 +82,20 @@ var _ = Describe("Conversion Webhook", func() {
 		return v1.MockResourceCrd.KubeResource(mockResource)
 	}
 
-	//makeV2Obj := func() *solov1.Resource {
-	//	mockResource := &v2alpha1.MockResource{
-	//		Metadata: core.Metadata{
-	//			Name:      "two",
-	//			Namespace: "two",
-	//		},
-	//	}
-	//	return v2alpha1.MockResourceCrd.KubeResource(mockResource)
-	//}
+	// makeV2Obj := func() *solov1.Resource {
+	// 	mockResource := &v2alpha1.MockResource{
+	// 		Metadata: core.Metadata{
+	// 			Name:      "two",
+	// 			Namespace: "two",
+	// 		},
+	// 	}
+	// 	return v2alpha1.MockResourceCrd.KubeResource(mockResource)
+	// }
 
 	It("should convert spoke to hub successfully", func() {
 
 		v1Obj := makeV1Obj()
-		//v2obj := makeV2Obj()
+		// v2obj := makeV2Obj()
 
 		convReq := &apix.ConversionReview{
 			TypeMeta: metav1.TypeMeta{},
@@ -109,9 +105,9 @@ var _ = Describe("Conversion Webhook", func() {
 					{
 						Object: v1Obj,
 					},
-					//{
-					//	Object: v2obj,
-					//},
+					// {
+					// 	Object: v2obj,
+					// },
 				},
 			},
 		}
