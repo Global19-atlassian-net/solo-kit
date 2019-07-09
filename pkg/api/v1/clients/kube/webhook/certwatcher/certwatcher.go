@@ -12,8 +12,9 @@ import (
 // CertWatcher watches certificate and key files for changes.  When either file
 // changes, it reads and parses both and calls an optional callback with the new
 // certificate.
-type CertWatcher struct {
-	sync.Mutex
+
+type certWatcher struct {
+	sync.RWMutex
 
 	currentCert *tls.Certificate
 	watcher     *fsnotify.Watcher
@@ -22,11 +23,11 @@ type CertWatcher struct {
 	keyPath  string
 }
 
-// New returns a new CertWatcher watching the given certificate and key.
-func New(ctx context.Context, certPath, keyPath string) (*CertWatcher, error) {
+// New returns a new certWatcher watching the given certificate and key.
+func New(ctx context.Context, certPath, keyPath string) (*certWatcher, error) {
 	var err error
 
-	cw := &CertWatcher{
+	cw := &certWatcher{
 		certPath: certPath,
 		keyPath:  keyPath,
 	}
@@ -45,14 +46,14 @@ func New(ctx context.Context, certPath, keyPath string) (*CertWatcher, error) {
 }
 
 // GetCertificate fetches the currently loaded certificate, which may be nil.
-func (cw *CertWatcher) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-	cw.Lock()
-	defer cw.Unlock()
+func (cw *certWatcher) GetCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	cw.RLock()
+	defer cw.RUnlock()
 	return cw.currentCert, nil
 }
 
 // Start starts the watch on the certificate and key files.
-func (cw *CertWatcher) Start(ctx context.Context) error {
+func (cw *certWatcher) Start(ctx context.Context) error {
 	files := []string{cw.certPath, cw.keyPath}
 
 	for _, f := range files {
@@ -61,18 +62,14 @@ func (cw *CertWatcher) Start(ctx context.Context) error {
 		}
 	}
 
-	go cw.Watch(ctx)
-
 	contextutils.LoggerFrom(ctx).Debug("Starting certificate watcher")
-
-	// Block until the stop channel is closed.
-	<-ctx.Done()
+	cw.Watch(ctx)
 
 	return cw.watcher.Close()
 }
 
 // Watch reads events from the watcher's channel and reacts to changes.
-func (cw *CertWatcher) Watch(ctx context.Context) {
+func (cw *certWatcher) Watch(ctx context.Context) {
 	for {
 		select {
 		case event, ok := <-cw.watcher.Events:
@@ -90,29 +87,33 @@ func (cw *CertWatcher) Watch(ctx context.Context) {
 			}
 
 			contextutils.LoggerFrom(ctx).Error(err, "certificate watch error")
+		case <-ctx.Done():
+			contextutils.LoggerFrom(ctx).Info("context closed")
+			return
 		}
+
 	}
 }
 
 // ReadCertificate reads the certificate and key files from disk, parses them,
 // and updates the current certificate on the watcher.  If a callback is set, it
 // is invoked with the new certificate.
-func (cw *CertWatcher) ReadCertificate(ctx context.Context) error {
+func (cw *certWatcher) ReadCertificate(ctx context.Context) error {
 	cert, err := tls.LoadX509KeyPair(cw.certPath, cw.keyPath)
 	if err != nil {
 		return err
 	}
 
 	cw.Lock()
+	defer cw.Unlock()
 	cw.currentCert = &cert
-	cw.Unlock()
 
 	contextutils.LoggerFrom(ctx).Info("Updated current TLS certiface")
 
 	return nil
 }
 
-func (cw *CertWatcher) handleEvent(ctx context.Context, event fsnotify.Event) {
+func (cw *certWatcher) handleEvent(ctx context.Context, event fsnotify.Event) {
 	// Only care about events which may modify the contents of the file.
 	if !(isWrite(event) || isRemove(event) || isCreate(event)) {
 		return

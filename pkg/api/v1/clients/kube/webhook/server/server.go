@@ -3,19 +3,22 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/http"
 	"path"
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/solo-io/go-utils/contextutils"
+	"github.com/solo-io/go-utils/errors"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/certwatcher"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+//go:generate mockgen -destination=./mocks/client_interface.go github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/server Webhook,KubeWebhook
 
 const (
 	certName = "tls.crt"
@@ -23,22 +26,28 @@ const (
 )
 
 // DefaultPort is the default port that the webhook server serves.
-var DefaultPort = 443
+var (
+	DefaultPort = 443
 
+	DuplicatePathError = func(path string) error {
+		return errors.Errorf("can't register duplicate path: %v", path)
+	}
+)
 
 type KubeWebhook interface {
 	http.Handler
 	InjectScheme(s *runtime.Scheme) error
+	Path() string
 }
 
-type WebhookServer interface {
-	Register(path string, hook http.Handler)
+type Webhook interface {
+	Register(path string, hook http.Handler) error
 	Start(ctx context.Context) error
 }
 
 // Server is an admission webhook server that can serve traffic and
 // generates related k8s resources for deploying.
-type Server struct {
+type server struct {
 	// Host is the address that the server will listen on.
 	// Defaults to "" - all addresses.
 	Host string
@@ -63,10 +72,15 @@ type Server struct {
 
 	// defaultingOnce ensures that the default fields are only ever set once.
 	defaultingOnce sync.Once
+	mu             sync.Mutex
 }
 
-// setDefaults does defaulting for the Server.
-func (s *Server) setDefaults() {
+func NewWebhook() *server {
+	return &server{}
+}
+
+// setDefaults does defaulting for the server.
+func (s *server) setDefaults() {
 	s.webhooks = map[string]http.Handler{}
 	if s.WebhookMux == nil {
 		s.WebhookMux = http.NewServeMux()
@@ -82,25 +96,26 @@ func (s *Server) setDefaults() {
 }
 
 // Register marks the given webhook as being served at the given path.
-// It panics if two hooks are registered on the same path.
-func (s *Server) Register(path string, hook http.Handler) {
+func (s *server) Register(path string, hook http.Handler) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.defaultingOnce.Do(s.setDefaults)
 	_, found := s.webhooks[path]
 	if found {
-		panic(fmt.Errorf("can't register duplicate path: %v", path))
+		return DuplicatePathError(path)
 	}
 	// TODO(directxman12): call setfields if we've already started the server
 	s.webhooks[path] = hook
 	s.WebhookMux.Handle(path, hook)
+	return nil
 }
 
 // Start runs the server.
 // It will install the webhook related resources depend on the server configuration.
-func (s *Server) Start(ctx context.Context) error {
+func (s *server) Start(ctx context.Context) error {
 	s.defaultingOnce.Do(s.setDefaults)
 
 	baseHookLog := contextutils.LoggerFrom(ctx).With(zap.String("webhook", "server"))
-
 	certPath := filepath.Join(s.CertDir, certName)
 	keyPath := filepath.Join(s.CertDir, keyName)
 
@@ -108,7 +123,6 @@ func (s *Server) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	go func() {
 		if err := certWatcher.Start(ctx); err != nil {
 			baseHookLog.Error(err, "certificate watcher error")
@@ -129,23 +143,18 @@ func (s *Server) Start(ctx context.Context) error {
 		Handler: s.WebhookMux,
 	}
 
-	idleConnsClosed := make(chan struct{})
-	go func() {
-		<-ctx.Done()
-
-		// TODO: use a context with reasonable timeout
-		if err := srv.Shutdown(ctx); err != nil {
-			// Error from closing listeners, or context timeout
-			baseHookLog.Error(err, "error shutting down the HTTP server")
-		}
-		close(idleConnsClosed)
-	}()
-
 	err = srv.Serve(listener)
 	if err != nil && err != http.ErrServerClosed {
 		return err
 	}
 
-	<-idleConnsClosed
+	select {
+	case <-ctx.Done():
+		timeout, _ := context.WithTimeout(context.Background(), time.Second*10)
+		if err := srv.Shutdown(timeout); err != nil {
+			// Error from closing listeners, or context timeout
+			baseHookLog.Error(err, "error shutting down the HTTP server")
+		}
+	}
 	return nil
 }

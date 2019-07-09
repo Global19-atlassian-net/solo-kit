@@ -23,26 +23,27 @@ import (
 )
 
 type kubeWebhook struct {
+	path    string
 	decoder *server.Decoder
 	scheme  *runtime.Scheme
 
 	ctx      context.Context
-	server   *server.Server
+	server   *server.Webhook
 	resource *crd.MultiVersionCrd
 
 	converter crd.Converter
 }
 
-func NewKubeWebhook(ctx context.Context, server *server.Server, gk schema.GroupKind, converter crd.Converter) (*kubeWebhook, error) {
+func NewKubeWebhook(ctx context.Context, gk schema.GroupKind, converter crd.Converter, path string) (*kubeWebhook, error) {
 	resource, err := crd.GetMultiVersionCrd(gk)
 	if err != nil {
 		return nil, err
 	}
 	kw := &kubeWebhook{
-		server:    server,
 		resource:  &resource,
 		ctx:       ctx,
 		converter: converter,
+		path:      path,
 	}
 	return kw, nil
 }
@@ -57,6 +58,11 @@ func (k *kubeWebhook) InjectScheme(s *runtime.Scheme) error {
 	}
 
 	return nil
+}
+
+// InjectScheme injects a scheme into the webhook, in order to construct a Decoder.
+func (k *kubeWebhook) Path() string {
+	return k.path
 }
 
 func (k *kubeWebhook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
