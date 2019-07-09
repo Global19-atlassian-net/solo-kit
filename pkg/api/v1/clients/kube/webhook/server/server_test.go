@@ -17,17 +17,10 @@ func (m *MockHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
 var _ = Describe("", func() {
 	var (
 		srv *server
-		// ctx context.Context
-		// cancel context.CancelFunc
 	)
 
 	BeforeEach(func() {
-		// ctx, cancel = context.WithCancel(context.Background())
-		srv = &server{
-			Port:       8080,
-			webhooks:   map[string]http.Handler{},
-			WebhookMux: http.NewServeMux(),
-		}
+		srv = &server{}
 	})
 
 	It("can only register each path once", func() {
@@ -37,6 +30,10 @@ var _ = Describe("", func() {
 		Expect(err).To(Equal(DuplicatePathError("hello")))
 	})
 	It("sets defaults properly", func() {
-
+		Expect(srv.Register("hello", &MockHandler{})).NotTo(HaveOccurred())
+		Expect(srv.Port).To(Equal(DefaultPort))
+		Expect(srv.CertDir).To(Equal(DefaultCertPath))
+		Expect(srv.Host).To(Equal(""))
+		Expect(srv.webhooks).To(HaveLen(1))
 	})
 })

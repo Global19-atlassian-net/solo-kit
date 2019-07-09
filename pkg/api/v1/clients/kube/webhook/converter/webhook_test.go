@@ -1,4 +1,4 @@
-package conversion_test
+package converter_test
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd/client/clientset/versioned/scheme"
 	solov1 "github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd/solo.io/v1"
-	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/conversion"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/converter"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/webhook/server"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
@@ -40,7 +40,7 @@ var _ = Describe("Conversion Webhook", func() {
 
 	BeforeEach(func() {
 		var err error
-		kubeWebhook, err = conversion.NewKubeWebhook(context.TODO(), nil, v2alpha1.MockResourceGVK.GroupKind(), &testConverter{})
+		kubeWebhook, err = converter.NewKubeWebhook(context.TODO(), v2alpha1.MockResourceGVK.GroupKind(), &testConverter{}, "hello")
 		Expect(err).NotTo(HaveOccurred())
 		respRecorder = &httptest.ResponseRecorder{
 			Body: bytes.NewBuffer(nil),

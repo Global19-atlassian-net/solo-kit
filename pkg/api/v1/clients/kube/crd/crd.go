@@ -103,7 +103,7 @@ func NewCrd(
 }
 
 func (d Crd) Register(apiexts apiexts.Interface) error {
-	return getRegistry().registerCrd(d.GroupVersionKind(), apiexts)
+	return GetRegistry().registerCrd(d.GroupVersionKind(), apiexts)
 }
 
 func (d Crd) KubeResource(resource resources.InputResource) *v1.Resource {

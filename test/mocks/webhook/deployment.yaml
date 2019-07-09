@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: converter
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      gloo: conversion-webhook
+  template:
+    metadata:
+      labels:
+        gloo: conversion-webhook
+    spec:
+      containers:
+      - name: converter
+        image: solo-io/conversion-webhook:latest
+        imagePullPolicy: Never
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: secret-volume
+          readOnly: true
+      volumes:
+      - secret:
+          secretName: webhook-secret
+        name: secret-volume
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    gloo: conversion-webhook
+  name: conversion-webhook
+  namespace: default
+spec:
+  ports:
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  type: ClusterIP

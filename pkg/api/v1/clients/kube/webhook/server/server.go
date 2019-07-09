@@ -29,6 +29,8 @@ const (
 var (
 	DefaultPort = 443
 
+	DefaultCertPath = path.Join("/tmp", "k8s-webhook-server", "serving-certs")
+
 	DuplicatePathError = func(path string) error {
 		return errors.Errorf("can't register duplicate path: %v", path)
 	}
@@ -91,7 +93,7 @@ func (s *server) setDefaults() {
 	}
 
 	if len(s.CertDir) == 0 {
-		s.CertDir = path.Join("/tmp", "k8s-webhook-server", "serving-certs")
+		s.CertDir = DefaultCertPath
 	}
 }
 

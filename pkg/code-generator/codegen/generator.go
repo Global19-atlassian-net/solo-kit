@@ -2,12 +2,9 @@ package codegen
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"text/template"
 
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	"github.com/solo-io/solo-kit/pkg/code-generator/jsonschema"
 	"github.com/solo-io/solo-kit/pkg/errors"
 
 	"github.com/iancoleman/strcase"
@@ -27,22 +24,6 @@ func GenerateFiles(project *model.Project, skipOutOfPackageFiles, skipGeneratedT
 		return nil, err
 	}
 
-	schemaGenerator := jsonschema.NewGenerator(func(desc *descriptor.DescriptorProto) bool {
-		for _, v := range project.Resources {
-			if v.Name == desc.GetName() {
-				return true
-			}
-		}
-		return false
-	})
-
-	schemas, err := schemaGenerator.Convert(project.Request)
-	if err != nil {
-		return nil, err
-	}
-	for _, v := range schemas.File {
-		fmt.Println(v.GetContent())
-	}
 	for _, res := range project.Resources {
 		// only generate files for the resources in our group, otherwise we import
 		if !project.ProjectConfig.IsOurProto(res.Filename) && !res.IsCustom {

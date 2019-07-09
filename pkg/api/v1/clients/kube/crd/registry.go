@@ -41,16 +41,16 @@ func init() {
 	registry = &crdRegistry{}
 }
 
-func getRegistry() *crdRegistry {
+func GetRegistry() *crdRegistry {
 	return registry
 }
 
 func AddCrd(resource Crd) error {
-	return getRegistry().addCrd(resource)
+	return GetRegistry().addCrd(resource)
 }
 
 func GetMultiVersionCrd(gk schema.GroupKind) (MultiVersionCrd, error) {
-	return getRegistry().getMultiVersionCrd(gk)
+	return GetRegistry().getMultiVersionCrd(gk)
 }
 
 func (r *crdRegistry) addCrd(resource Crd) error {
@@ -119,6 +119,20 @@ func (r *crdRegistry) registerCrd(gvk schema.GroupVersionKind, clientset apiexts
 		return fmt.Errorf("failed to register crd: %v", err)
 	}
 	return kubeutils.WaitForCrdActive(clientset, toRegister.Name)
+}
+
+func (r crdRegistry) GetKubeCrd(gvk schema.GroupVersionKind) (*v1beta1.CustomResourceDefinition, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	crd, err := r.getMultiVersionCrd(gvk.GroupKind())
+	if err != nil {
+		return nil, err
+	}
+	toRegister, err := r.getKubeCrd(crd, gvk)
+	if err != nil {
+		return nil, err
+	}
+	return toRegister, nil
 }
 
 func (r crdRegistry) getKubeCrd(crd MultiVersionCrd, gvk schema.GroupVersionKind) (*v1beta1.CustomResourceDefinition, error) {

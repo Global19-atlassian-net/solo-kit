@@ -1,0 +1,29 @@
+kind: CustomResourceDefinition
+apiVersion: apiextensions.k8s.io/v1beta1
+metadata:
+  name: mocks.testing.solo.io
+spec:
+  group: testing.solo.io
+  names:
+    plural: mocks
+    shortNames:
+      - mk
+    kind: MockResource
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: false
+  - name: v2alpha1
+    served: true
+    storage: true
+  preserveUnknownFields: false
+  conversion:
+    strategy: Webhook
+    webhookClientConfig:
+      service:
+        namespace: default
+        name: crd-converter
+        path: /crdconvert
+      caBundle: |
+        LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM1akNDQWM2Z0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFrTVNJd0lBWURWUVFERXhsemRYQmwKY21kc2IyOHRkMlZpYUc5dmF5MWpaWEowTFdOaE1CNFhEVEU1TURjd09URTRNRE0xTUZvWERUSTVNRGN3TmpFNApNRE0xTUZvd0pERWlNQ0FHQTFVRUF4TVpjM1Z3WlhKbmJHOXZMWGRsWW1odmIyc3RZMlZ5ZEMxallUQ0NBU0l3CkRRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQkFNMjhVL1VJbjkvQ04vdXRjTmgyVDJqMDR5RWkKTzJkbHZEQlk1U2FuMmhMZ1VVTDJMSUY1UkVINDUwaWx2RS9vaFhQaFN2YkNRSWxnUHo3dW9VNFFmL2xNVDF5dApVMFpiMU5zYmZ2cnFNSjMzZlRtODNzRzZSSGRpWFVWN3dUTU9odDJIQ2VHZ1ArblF5N09zdi9WYWlJVUJibFBSClNpV0pIQzQwdmJacnlhZ1kxZHd0bFBFNjUyOUg0bk9OOEdlc0EyZnlnY2VIWHNZNElsS3ZWZUxxaXNyMDRBbDYKajV0UUJOZkNjZ1lESGswWXBiT0NFcVlxTzV2aTVjOEFHT1J0aHUyaTdwTmdrUEJVUDJxZjBTaU1zeWkvWW5DdwpMdHUyS1dUZHBjUGtNTzBFS3hDczVlcFJoMS84eXBtQnZ4UUt6SURPZW1rUGZDNVdWRTJNL05nUWJQY0NBd0VBCkFhTWpNQ0V3RGdZRFZSMFBBUUgvQkFRREFnS2tNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSWh2Y04KQVFFTEJRQURnZ0VCQUZraXh3L3NJb2NZT0llbkZmWUJ3OWl2UFZEYy9DZVdSL1FEUlZSclphSEJhNG5xM1dCKwo2cXdqKzhsNnA4WlVydzREVXJRMkNDTmc0QkVtNlJhaEVHSVlEdk5IL05EYjdkZFE1N2RGNzdhbHNiWGFWdytkCnpPVlpZUUdmcksyOGROVjdsVkYxa09jbDduU0xCN0hqOEVJYlAzRHI0YWV3ODFUMUVMalNrOXlmemNtSWlvYkoKZ08rZU1pR3VycTQxM1FOMksxNE1JaTdlVGVXckhxVVViNjdmR0Urb1ByYmhWVExWZWZnRmJtcW1hanRROFY1WAo4UkRnUGVzRVd3NjZXbHc2WnRLQUVNMmR2eEFwS0N0Y0tMTmgrcVVZb1RnTWQvN3NENHNzdkVIZXdrSTl6UVBnCndiMGR2V2RMb0pwbWVlNndNU25UcE91RUFzNXhhOXlvNkZNPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==

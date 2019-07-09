@@ -1,4 +1,4 @@
-package conversion_test
+package converter_test
 
 import (
 	"testing"
