@@ -204,6 +204,7 @@ func Generate(opts GenerateOptions) error {
 	}
 
 	conversionConfig, err := getConversionConfigFromRoot(absoluteRoot)
+	fmt.Printf("%v", absoluteRoot)
 	if os.IsNotExist(err) {
 		log.Printf("Could not find %v, skipping conversion gen", model.ConversionConfigFilename)
 		return nil

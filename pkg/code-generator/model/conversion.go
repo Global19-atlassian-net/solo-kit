@@ -44,6 +44,7 @@ func LoadConversionConfig(path string) (ConversionConfig, error) {
 	if err != nil {
 		return ConversionConfig{}, err
 	}
+	cc.Conversions = make(map[string]*Conversion)
 	cc.ConversionFile = path
 	return cc, err
 }
