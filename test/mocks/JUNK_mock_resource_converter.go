@@ -1,6 +1,8 @@
 package mocks
 
 import (
+	"reflect"
+
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
@@ -45,45 +47,40 @@ func (c *mockResourceConverter) Convert(src, dst crd.SoloKitCrd) error {
 	}
 
 	if srcVersion.GreaterThan(dstVersion) {
-		c.convertDown(src, dst)
-	}
-	if srcVersion.LessThan(dstVersion) {
+		dst = c.convertDown(src, dst)
+	} else if srcVersion.LessThan(dstVersion) {
 		c.convertUp(src, dst)
+	} else {
+		dst = src
 	}
 
 	return nil
 }
 
-func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) {
-	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
-		dst = src
-		return
+func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) crd.SoloKitCrd {
+	if reflect.TypeOf(src) == reflect.TypeOf(dst) {
+		return src
 	}
 
 	switch t := src.(type) {
 	case *v2alpha1.MockResource:
-		src = c.downConverter.FromV2Alpha1ToV1(t)
+		return c.convertDown(c.downConverter.FromV2Alpha1ToV1(t), dst)
 	case *v1.MockResource:
-		src = c.downConverter.FromV1ToV1Alpha1(t)
-	default:
-		return
+		return c.convertDown(c.downConverter.FromV1ToV1Alpha1(t), dst)
 	}
-	c.convertDown(src, dst)
+	return nil
 }
 
 func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) {
-	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+	if reflect.TypeOf(src) == reflect.TypeOf(dst) {
 		dst = src
 		return
 	}
 
 	switch t := src.(type) {
 	case *v1alpha1.MockResource:
-		src = c.upConverter.FromV1Alpha1ToV1(t)
+		c.convertUp(c.upConverter.FromV1Alpha1ToV1(t), dst)
 	case *v1.MockResource:
-		src = c.upConverter.FromV1ToV2Alpha1(t)
-	default:
-		return
+		c.convertUp(c.upConverter.FromV1ToV2Alpha1(t), dst)
 	}
-	c.convertUp(src, dst)
 }
