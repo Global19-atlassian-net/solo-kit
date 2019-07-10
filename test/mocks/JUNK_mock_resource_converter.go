@@ -48,11 +48,11 @@ func (c *MockResourceConverter) convertDown(src, dst crd.SoloKitCrd) {
 		return
 	}
 
-	switch src.GetObjectKind().GroupVersionKind().Version {
-	case "v2alpha1":
-		src = c.DownConverter.FromV2Alpha1ToV1(src.(*v2alpha1.MockResource))
-	case "v1":
-		src = c.DownConverter.FromV1ToV1Alpha1(src.(*v1.MockResource))
+	switch t := src.(type) {
+	case *v2alpha1.MockResource:
+		src = c.DownConverter.FromV2Alpha1ToV1(t)
+	case *v1.MockResource:
+		src = c.DownConverter.FromV1ToV1Alpha1(t)
 	default:
 		return
 	}
@@ -64,11 +64,11 @@ func (c *MockResourceConverter) convertUp(src, dst crd.SoloKitCrd) {
 		return
 	}
 
-	switch src.GetObjectKind().GroupVersionKind().Version {
-	case "v1alpha1":
-		src = c.UpConverter.FromV1Alpha1ToV1(src.(*v1alpha1.MockResource))
-	case "v1":
-		src = c.UpConverter.FromV1ToV2Alpha1(src.(*v1.MockResource))
+	switch t := src.(type) {
+	case *v1alpha1.MockResource:
+		src = c.UpConverter.FromV1Alpha1ToV1(t)
+	case *v1.MockResource:
+		src = c.UpConverter.FromV1ToV2Alpha1(t)
 	default:
 		return
 	}
