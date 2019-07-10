@@ -1,14 +1,18 @@
 package mocks
 
 import (
+	"errors"
 	"reflect"
 
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
+	"github.com/solo-io/solo-kit/pkg/utils/protoutils"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
 	"github.com/solo-io/solo-kit/test/mocks/v1alpha1"
 	"github.com/solo-io/solo-kit/test/mocks/v2alpha1"
 )
+
+var unrecognizedTypeError = errors.New("unrecognized source type. Should never happen")
 
 type UpConverter interface {
 	FromV1Alpha1ToV1(src *v1alpha1.MockResource) *v1.MockResource
@@ -22,6 +26,10 @@ type DownConverter interface {
 
 type MockResourceConverter interface {
 	Convert(src, dst crd.SoloKitCrd) error
+}
+
+type Converter interface {
+	Convert(src, dst crd.SoloKitCrd) (crd.SoloKitCrd, error)
 }
 
 type mockResourceConverter struct {
@@ -47,19 +55,16 @@ func (c *mockResourceConverter) Convert(src, dst crd.SoloKitCrd) error {
 	}
 
 	if srcVersion.GreaterThan(dstVersion) {
-		dst = c.convertDown(src, dst)
+		return c.convertDown(src, dst)
 	} else if srcVersion.LessThan(dstVersion) {
-		c.convertUp(src, dst)
-	} else {
-		dst = src
+		return c.convertUp(src, dst)
 	}
-
-	return nil
+	return writeSrcToDst(src, dst)
 }
 
-func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) crd.SoloKitCrd {
+func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) error {
 	if reflect.TypeOf(src) == reflect.TypeOf(dst) {
-		return src
+		return writeSrcToDst(src, dst)
 	}
 
 	switch t := src.(type) {
@@ -68,19 +73,31 @@ func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) crd.SoloKit
 	case *v1.MockResource:
 		return c.convertDown(c.downConverter.FromV1ToV1Alpha1(t), dst)
 	}
-	return nil
+	return unrecognizedTypeError
 }
 
-func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) {
+func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) error {
 	if reflect.TypeOf(src) == reflect.TypeOf(dst) {
-		dst = src
-		return
+		return writeSrcToDst(src, dst)
 	}
 
 	switch t := src.(type) {
 	case *v1alpha1.MockResource:
-		c.convertUp(c.upConverter.FromV1Alpha1ToV1(t), dst)
+		return c.convertUp(c.upConverter.FromV1Alpha1ToV1(t), dst)
 	case *v1.MockResource:
-		c.convertUp(c.upConverter.FromV1ToV2Alpha1(t), dst)
+		return c.convertUp(c.upConverter.FromV1ToV2Alpha1(t), dst)
 	}
+	return unrecognizedTypeError
+}
+
+func writeSrcToDst(src, dst crd.SoloKitCrd) error {
+	srcBytes, err := protoutils.MarshalBytes(src)
+	if err != nil {
+		return err
+	}
+	err = protoutils.UnmarshalBytes(srcBytes, dst)
+	if err != nil {
+		return err
+	}
+	return nil
 }
