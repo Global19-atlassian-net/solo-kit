@@ -4,224 +4,99 @@ import (
 	"text/template"
 )
 
-var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package {{ .Project.ProjectConfig.Version }}
+var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package {{ .ConversionConfig.GoPackage }}
 
 import (
-	"sort"
+	"errors"
 
-{{- if $.IsCustom }}
-	{{ $.CustomImportPrefix }} "{{ $.CustomResource.Package }}"
-{{- end }}
-
-	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
-	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
-	"github.com/solo-io/solo-kit/pkg/errors"
-	"github.com/solo-io/go-utils/hashutils"
-{{- if not $.IsCustom }}
+	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-{{- end }}
+
+	// TODO joekelley maybe specify path/path/pkg
+	{{ range .ConversionConfig.ConvertibleResources }}
+	{{ .Project.ProjectConfig.GoPackage }}
+	{{ end }}
 )
 
-func New{{ .Name }}(namespace, name string) *{{ .Name }} {
-	{{ lowercase .Name }} := &{{ .Name }}{}
-{{- if $.IsCustom }}
-	{{ lowercase .Name }}.{{ $.Name }}.SetMetadata(core.Metadata{
-{{- else }}
-	{{ lowercase .Name }}.SetMetadata(core.Metadata{
-{{- end }}
-		Name:      name,
-		Namespace: namespace,
-	})
-	return {{ lowercase .Name }}
+type UpConverter interface {
+	{{ range .ConversionConfig.ConvertibleResources }}
+	{{ if .NextProject }}
+	From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .NextProject.GoPackage }}(src *{{ .Project.GoPackage }}.{{ .Resource.Name }}) *{{ .NextProject.GoPackage }}.{{ .NextResource.Name }}
+	{{ end }}
+	{{ end }}
 }
 
-{{- if $.IsCustom }}
-
-// require custom resource to implement Clone() as well as resources.Resource interface
-
-type Cloneable{{ $.Name }} interface {
-	resources.Resource
-	Clone() *{{ $.CustomImportPrefix}}.{{ $.Name }}
+type DownConverter interface {
+	{{ range .ConversionConfig.ConvertibleResources }}
+	{{ if .PreviousProject }}
+	From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .PreviousProject.GoPackage }}(src *{{ .Project.GoPackage }}.{{ .Resource.Name }}) *{{ .PreviousProject.GoPackage }}.{{ .PreviousResource.Name }}
+	{{ end }}
+	{{ end }}
 }
 
-var _ Cloneable{{ $.Name }} = &{{ $.CustomImportPrefix}}.{{ $.Name }}{}
-
-type {{ $.Name }} struct {
-	{{ $.CustomImportPrefix}}.{{ $.Name }}
+type {{ upper_camel .ConversionConfig.Resource.Name }}Converter interface {
+	Convert(src, dst crd.SoloKitCrd) error
 }
 
-func (r *{{ .Name }}) Clone() resources.Resource {
-	return &{{ .Name }}{ {{ .Name }}: *r.{{ .Name }}.Clone() }
+type {{ lower_camel .ConversionConfig.Resource.Name }}Converter struct {
+	upConverter   UpConverter
+	downConverter DownConverter
 }
 
-func (r *{{ .Name }}) Hash() uint64 {
-	clone := r.{{ .Name }}.Clone()
-
-	resources.UpdateMetadata(clone, func(meta *core.Metadata) {
-		meta.ResourceVersion = ""
-	})
-
-	return hashutils.HashAll(clone)
-}
-
-{{- else }}
-
-func (r *{{ .Name }}) SetMetadata(meta core.Metadata) {
-	r.Metadata = meta
-}
-
-{{- if $.HasStatus }}
-
-func (r *{{ .Name }}) SetStatus(status core.Status) {
-	r.Status = status
-}
-{{- end }}
-
-func (r *{{ .Name }}) Hash() uint64 {
-	metaCopy := r.GetMetadata()
-	metaCopy.ResourceVersion = ""
-	return hashutils.HashAll(
-		metaCopy,
-{{- range .Fields }}
-	{{- if not ( or (eq .Name "metadata") (eq .Name "status") .IsOneof .SkipHashing ) }}
-		r.{{ upper_camel .Name }},
-	{{- end }}
-{{- end}}
-{{- range .Oneofs }}
-		r.{{ upper_camel .Name }},
-{{- end}}
-	)
-}
-
-{{- end }}
-
-type {{ .Name }}List []*{{ .Name }}
-
-// namespace is optional, if left empty, names can collide if the list contains more than one with the same name
-func (list {{ .Name }}List) Find(namespace, name string) (*{{ .Name }}, error) {
-	for _, {{ lower_camel .Name }} := range list {
-		if {{ lower_camel .Name }}.GetMetadata().Name == name {
-			if namespace == "" || {{ lower_camel .Name }}.GetMetadata().Namespace == namespace {
-				return {{ lower_camel .Name }}, nil
-			}
-		}
-	}
-	return nil, errors.Errorf("list did not find {{ lower_camel .Name }} %v.%v", namespace, name)
-}
-
-func (list {{ .Name }}List) AsResources() resources.ResourceList {
-	var ress resources.ResourceList 
-	for _, {{ lower_camel .Name }} := range list {
-		ress = append(ress, {{ lower_camel .Name }})
-	}
-	return ress
-}
-
-{{ if $.HasStatus -}}
-func (list {{ .Name }}List) AsInputResources() resources.InputResourceList {
-	var ress resources.InputResourceList
-	for _, {{ lower_camel .Name }} := range list {
-		ress = append(ress, {{ lower_camel .Name }})
-	}
-	return ress
-}
-{{- end}}
-
-func (list {{ .Name }}List) Names() []string {
-	var names []string
-	for _, {{ lower_camel .Name }} := range list {
-		names = append(names, {{ lower_camel .Name }}.GetMetadata().Name)
-	}
-	return names
-}
-
-func (list {{ .Name }}List) NamespacesDotNames() []string {
-	var names []string
-	for _, {{ lower_camel .Name }} := range list {
-		names = append(names, {{ lower_camel .Name }}.GetMetadata().Namespace + "." + {{ lower_camel .Name }}.GetMetadata().Name)
-	}
-	return names
-}
-
-func (list {{ .Name }}List) Sort() {{ .Name }}List {
-	sort.SliceStable(list, func(i, j int) bool {
-		return list[i].GetMetadata().Less(list[j].GetMetadata())
-	})
-	return list
-}
-
-func (list {{ .Name }}List) Clone() {{ .Name }}List {
-	var {{ lower_camel .Name }}List {{ .Name }}List
-	for _, {{ lower_camel .Name }} := range list {
-		{{ lower_camel .Name }}List = append({{ lower_camel .Name }}List, resources.Clone({{ lower_camel .Name }}).(*{{ .Name }}))
-	}
-	return {{ lower_camel .Name }}List 
-}
-
-func (list {{ .Name }}List) Each(f func(element *{{ .Name }})) {
-	for _, {{ lower_camel .Name }} := range list {
-		f({{ lower_camel .Name }})
+func New{{ upper_camel .ConversionConfig.Resource.Name }}Converter(u UpConverter, d DownConverter) crd.Converter {
+	return &{{ lower_camel .ConversionConfig.Resource.Name }}Converter{
+		upConverter:   u,
+		downConverter: d,
 	}
 }
 
-func (list {{ .Name }}List) EachResource(f func(element resources.Resource)) {
-	for _, {{ lower_camel .Name }} := range list {
-		f({{ lower_camel .Name }})
+func (c *{{ lower_camel .ConversionConfig.Resource.Name }}Converter) Convert(src, dst crd.SoloKitCrd) error {
+	srcVersion, err := kubeapi.ParseVersion(src.GetObjectKind().GroupVersionKind().Version)
+	if err != nil {
+		return err
 	}
-}
-
-func (list {{ .Name }}List) AsInterfaces() []interface{}{
-	var asInterfaces []interface{}
-	list.Each(func(element *{{ .Name }}) {
-		asInterfaces = append(asInterfaces, element)
-	})
-	return asInterfaces
-}
-
-{{- if not $.IsCustom }}
-
-var _ resources.Resource = &{{ .Name }}{}
-
-// Kubernetes Adapter for {{ .Name }}
-
-func (o *{{ .Name }}) GetObjectKind() schema.ObjectKind {
-	t := {{ .Name }}Crd.TypeMeta()
-	return &t
-}
-
-func (o *{{ .Name }}) DeepCopyObject() runtime.Object {
-	return resources.Clone(o).(*{{ .Name }})
-}
-
-{{- $crdGroupName := .Project.ProtoPackage }}
-{{- if ne .Project.ProjectConfig.CrdGroupOverride "" }}
-{{- $crdGroupName = .Project.ProjectConfig.CrdGroupOverride }}
-{{- end}}
-
-
-var (
-	{{ .Name }}GVK = schema.GroupVersionKind{
-		Version: "{{ .Project.ProjectConfig.Version }}",
-		Group: "{{ $crdGroupName }}",
-		Kind: "{{ .Name }}",
+	dstVersion, err := kubeapi.ParseVersion(dst.GetObjectKind().GroupVersionKind().Version)
+	if err != nil {
+		return err
 	}
-	{{ .Name }}Crd = crd.NewCrd(
-		"{{ lowercase (upper_camel .PluralName) }}",
-		{{ .Name }}GVK.Group,
-		{{ .Name }}GVK.Version,
-		{{ .Name }}GVK.Kind,
-		"{{ .ShortName }}",
-		{{ .ClusterScoped }},
-		&{{ .Name }}{})
-)
 
-func init() {
-	if err := crd.AddCrd({{ .Name }}Crd); err != nil {
-		log.Fatalf("could not add crd to global registry")
+	if srcVersion.GreaterThan(dstVersion) {
+		return c.convertDown(src, dst)
+	} else if srcVersion.LessThan(dstVersion) {
+		return c.convertUp(src, dst)
 	}
+	return crd.Copy(src, dst)
 }
 
-{{- end}}
+func (c *{{ lower_camel .ConversionConfig.Resource.Name }}Converter) convertDown(src, dst crd.SoloKitCrd) error {
+	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+		return crd.Copy(src, dst)
+	}
+
+	switch t := src.(type) {
+	{{ range .ConversionConfig.ConvertibleResources }}
+	{{ if .PreviousProject }}
+	case *{{ lower_camel .Project.GoPackage }}.{{ upper_camel .Resource.Name }}:
+		return c.convertUp(c.upConverter.From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .PreviousProject.GoPackage }}(t), dst)
+	{{ end }}
+	{{ end }}
+	}
+	return errors.New("unrecognized source type, this should never happen")
+}
+
+func (c *{{ lower_camel .ConversionConfig.Resource.Name }}Converter) convertUp(src, dst crd.SoloKitCrd) error {
+	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+		return crd.Copy(src, dst)
+	}
+
+	switch t := src.(type) {
+	{{ range .ConversionConfig.ConvertibleResources }}
+	{{ if .NextProject }}
+	case *{{ lower_camel .Project.GoPackage }}.{{ upper_camel .Resource.Name }}:
+		return c.convertUp(c.upConverter.From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .NextProject.GoPackage }}(t), dst)
+	{{ end }}
+	{{ end }}
+	}
+	return errors.New("unrecognized source type, this should never happen")
+}
 `))

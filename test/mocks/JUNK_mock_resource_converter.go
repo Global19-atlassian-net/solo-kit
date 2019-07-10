@@ -20,20 +20,12 @@ type DownConverter interface {
 	FromV1ToV1Alpha1(src *v1.MockResource) *v1alpha1.MockResource
 }
 
-type MockResourceConverter interface {
-	Convert(src, dst crd.SoloKitCrd) error
-}
-
-type Converter interface {
-	Convert(src, dst crd.SoloKitCrd) (crd.SoloKitCrd, error)
-}
-
 type mockResourceConverter struct {
 	upConverter   UpConverter
 	downConverter DownConverter
 }
 
-func NewMockResourceConverter(u UpConverter, d DownConverter) MockResourceConverter {
+func NewMockResourceConverter(u UpConverter, d DownConverter) crd.Converter {
 	return &mockResourceConverter{
 		upConverter:   u,
 		downConverter: d,

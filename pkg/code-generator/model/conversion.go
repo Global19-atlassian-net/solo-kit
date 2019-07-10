@@ -15,12 +15,19 @@ type ConversionConfig struct {
 	GoPackage string `json:"go_package"`
 
 	// set by load
+	Conversions    []*Conversion
 	ConversionFile string
 }
 
-type ConvertibleResource struct {
-	Version  string
+type Conversion struct {
+	Projects []*ConversionProject
 	Resource *Resource
+}
+
+type ConversionProject struct {
+	Next      *ConversionProject
+	Previous  *ConversionProject
+	GoPackage string
 }
 
 func LoadConversionConfig(path string) (ConversionConfig, error) {

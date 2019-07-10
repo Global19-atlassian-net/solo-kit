@@ -3,6 +3,7 @@ package mocks_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/test/mocks"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	converter mocks.MockResourceConverter
+	converter crd.Converter
 )
 
 var _ = Describe("MockResourceConverter", func() {
