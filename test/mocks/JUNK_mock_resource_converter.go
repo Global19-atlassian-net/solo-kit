@@ -18,12 +18,23 @@ type DownConverter interface {
 	FromV1ToV1Alpha1(src *v1.MockResource) *v1alpha1.MockResource
 }
 
-type MockResourceConverter struct {
-	UpConverter   UpConverter
-	DownConverter DownConverter
+type MockResourceConverter interface {
+	Convert(src, dst crd.SoloKitCrd) error
 }
 
-func (c *MockResourceConverter) Convert(src, dst crd.SoloKitCrd) error {
+type mockResourceConverter struct {
+	upConverter   UpConverter
+	downConverter DownConverter
+}
+
+func NewMockResourceConverter(u UpConverter, d DownConverter) MockResourceConverter {
+	return &mockResourceConverter{
+		upConverter:   u,
+		downConverter: d,
+	}
+}
+
+func (c *mockResourceConverter) Convert(src, dst crd.SoloKitCrd) error {
 	srcVersion, err := kubeapi.ParseVersion(src.GetObjectKind().GroupVersionKind().Version)
 	if err != nil {
 		return err
@@ -43,32 +54,34 @@ func (c *MockResourceConverter) Convert(src, dst crd.SoloKitCrd) error {
 	return nil
 }
 
-func (c *MockResourceConverter) convertDown(src, dst crd.SoloKitCrd) {
+func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) {
 	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+		dst = src
 		return
 	}
 
 	switch t := src.(type) {
 	case *v2alpha1.MockResource:
-		src = c.DownConverter.FromV2Alpha1ToV1(t)
+		src = c.downConverter.FromV2Alpha1ToV1(t)
 	case *v1.MockResource:
-		src = c.DownConverter.FromV1ToV1Alpha1(t)
+		src = c.downConverter.FromV1ToV1Alpha1(t)
 	default:
 		return
 	}
 	c.convertDown(src, dst)
 }
 
-func (c *MockResourceConverter) convertUp(src, dst crd.SoloKitCrd) {
+func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) {
 	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+		dst = src
 		return
 	}
 
 	switch t := src.(type) {
 	case *v1alpha1.MockResource:
-		src = c.UpConverter.FromV1Alpha1ToV1(t)
+		src = c.upConverter.FromV1Alpha1ToV1(t)
 	case *v1.MockResource:
-		src = c.UpConverter.FromV1ToV2Alpha1(t)
+		src = c.upConverter.FromV1ToV2Alpha1(t)
 	default:
 		return
 	}

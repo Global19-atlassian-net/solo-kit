@@ -16,7 +16,7 @@ import (
 func GenerateConversionFiles(projects []*model.Project) (code_generator.Files, error) {
 	var files code_generator.Files
 	// GroupKind -> Resource
-	convertibleResources := make(map[string][]*model.ConvertibleResource)
+	//convertibleResources := make(map[string][]*model.ConvertibleResource)
 
 	for _, project := range projects {
 		for _, res := range project.Resources {
@@ -41,20 +41,20 @@ func GenerateConversionFiles(projects []*model.Project) (code_generator.Files, e
 				//} else {
 				//	group = res.Project.ProtoPackage
 				//}
-				kind := res.CustomResource.Type
+				//kind := res.CustomResource.Type
 				//gk := group+kind
-				convertibleResources[kind] = append(convertibleResources[kind], res)
+				//convertibleResources[kind] = append(convertibleResources[kind], res)
 			}
 		}
 	}
 
-	for _, resources := range convertibleResources {
-		fs, err := generateFilesForResourceList(resources)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, fs...)
-	}
+	//for _, resources := range convertibleResources {
+	//	fs, err := generateFilesForResourceList(resources)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	files = append(files, fs...)
+	//}
 
 	return files, nil
 }

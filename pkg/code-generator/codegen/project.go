@@ -24,9 +24,6 @@ func GenerateProjectFiles(project *model.Project, skipOutOfPackageFiles, skipGen
 		return nil, err
 	}
 
-	// GroupKind -> Resource
-	customResources := make(map[string][]*model.Resource)
-
 	for _, res := range project.Resources {
 		// only generate files for the resources in our group, otherwise we import
 		if !project.ProjectConfig.IsOurProto(res.Filename) && !res.IsCustom {
@@ -42,27 +39,6 @@ func GenerateProjectFiles(project *model.Project, skipOutOfPackageFiles, skipGen
 		}
 
 		fs, err := generateFilesForResource(res)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, fs...)
-
-		if res.IsCustom {
-			//var group string
-			//if res.Project.ProjectConfig.CrdGroupOverride != "" {
-			//	group = res.Project.ProjectConfig.CrdGroupOverride
-			//} else {
-			//	group = res.Project.ProtoPackage
-			//}
-			kind := res.CustomResource.Type
-			//gk := group+kind
-			customResources[kind] = append(customResources[kind], res)
-		}
-	}
-
-	// TODO joekelley extract this -- it needs to happen once for all projects
-	for _, resources := range customResources {
-		fs, err := generateFilesForResourceList(resources)
 		if err != nil {
 			return nil, err
 		}

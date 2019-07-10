@@ -6,11 +6,10 @@ package mock_server
 
 import (
 	context "context"
-	http "net/http"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+	http "net/http"
+	reflect "reflect"
 )
 
 // MockWebhook is a mock of Webhook interface

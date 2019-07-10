@@ -203,71 +203,71 @@ func Generate(opts GenerateOptions) error {
 		}
 	}
 
-	conversionConfig, err := getConversionConfigFromRoot(absoluteRoot)
-	if os.IsNotExist(err) {
-		log.Printf("Could not find %v, skipping conversion gen", model.ConversionConfigFilename)
-		return nil
-	} else if err != nil {
-		log.Printf("Error parsing %v", model.ConversionConfigFilename)
-		return err
-	}
-
-	for _, project := range allProjects {
-		project, err := parser.ProcessDescriptors(projectConfig, projectConfigs, protoDescriptors)
-		if err != nil {
-			return err
-		}
-
-		code, err := codegen.GenerateProjectFiles(project, true, opts.SkipGeneratedTests)
-		if err != nil {
-			return err
-		}
-
-		if project.ProjectConfig.DocsDir != "" && (genDocs != nil) {
-			docs, err := docgen.GenerateFiles(project, genDocs)
-			if err != nil {
-				return err
-			}
-
-			for _, file := range docs {
-				path := filepath.Join(absoluteRoot, project.ProjectConfig.DocsDir, file.Filename)
-				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-					return err
-				}
-				if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-					return err
-				}
-			}
-		}
-
-		outDir := filepath.Join(gopathSrc(), project.ProjectConfig.GoPackage)
-
-		for _, file := range code {
-			path := filepath.Join(outDir, file.Filename)
-			if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-				return err
-			}
-			if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-				return err
-			}
-			if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
-				return errors.Wrapf(err, "gofmt failed: %s", out)
-			}
-
-			if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
-				return errors.Wrapf(err, "goimports failed: %s", out)
-			}
-		}
-
-		// Generate mocks
-		// need to run after to make sure all resources have already been written
-		// Set this env var during tests so that mocks are not generated
-		if !opts.SkipGenMocks {
-			if err := genMocks(code, outDir, absoluteRoot); err != nil {
-				return err
-			}
-		}
-	}
+	//conversionConfig, err := getConversionConfigFromRoot(absoluteRoot)
+	//if os.IsNotExist(err) {
+	//	log.Printf("Could not find %v, skipping conversion gen", model.ConversionConfigFilename)
+	//	return nil
+	//} else if err != nil {
+	//	log.Printf("Error parsing %v", model.ConversionConfigFilename)
+	//	return err
+	//}
+	//
+	//for _, project := range allProjects {
+	//	project, err := parser.ProcessDescriptors(projectConfig, projectConfigs, protoDescriptors)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	code, err := codegen.GenerateProjectFiles(project, true, opts.SkipGeneratedTests)
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	if project.ProjectConfig.DocsDir != "" && (genDocs != nil) {
+	//		docs, err := docgen.GenerateFiles(project, genDocs)
+	//		if err != nil {
+	//			return err
+	//		}
+	//
+	//		for _, file := range docs {
+	//			path := filepath.Join(absoluteRoot, project.ProjectConfig.DocsDir, file.Filename)
+	//			if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+	//				return err
+	//			}
+	//			if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
+	//				return err
+	//			}
+	//		}
+	//	}
+	//
+	//	outDir := filepath.Join(gopathSrc(), project.ProjectConfig.GoPackage)
+	//
+	//	for _, file := range code {
+	//		path := filepath.Join(outDir, file.Filename)
+	//		if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+	//			return err
+	//		}
+	//		if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
+	//			return err
+	//		}
+	//		if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
+	//			return errors.Wrapf(err, "gofmt failed: %s", out)
+	//		}
+	//
+	//		if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
+	//			return errors.Wrapf(err, "goimports failed: %s", out)
+	//		}
+	//	}
+	//
+	//	// Generate mocks
+	//	// need to run after to make sure all resources have already been written
+	//	// Set this env var during tests so that mocks are not generated
+	//	if !opts.SkipGenMocks {
+	//		if err := genMocks(code, outDir, absoluteRoot); err != nil {
+	//			return err
+	//		}
+	//	}
+	//}
 
 	return nil
 }
