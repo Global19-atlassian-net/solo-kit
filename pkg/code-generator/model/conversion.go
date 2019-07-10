@@ -20,14 +20,14 @@ type ConversionConfig struct {
 }
 
 type Conversion struct {
+	Name     string
 	Projects []*ConversionProject
-	Resource *Resource
 }
 
 type ConversionProject struct {
-	Next      *ConversionProject
-	Previous  *ConversionProject
-	GoPackage string
+	GoPackage       string
+	NextPackage     string
+	PreviousPackage string
 }
 
 func LoadConversionConfig(path string) (ConversionConfig, error) {

@@ -18,39 +18,38 @@ import (
 	{{ end }}
 )
 
-type UpConverter interface {
+{{ range .ConversionConfig.Conversions }}
+{{ $resourceName := .Name }}
+
+type {{ upper_camel $resourceName }}UpConverter interface {
+	{{ range .Projects }}
+	{{ if .NextPackage }}
+	From{{ upper_camel .GoPackage }}To{{ upper_camel .NextPackage }}(src *{{ .GoPackage }}.{{ upper_camel $resourceName }}) *{{ .NextPackage }}.{{ upper_camel $resourceName }}
+	{{ end }}
+	{{ end }}
+}
+
+type {{ upper_camel $resourceName }}DownConverter interface {
 	{{ range .ConversionConfig.ConvertibleResources }}
-	{{ if .NextProject }}
-	From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .NextProject.GoPackage }}(src *{{ .Project.GoPackage }}.{{ .Resource.Name }}) *{{ .NextProject.GoPackage }}.{{ .NextResource.Name }}
+	{{ if .PreviousPackage }}
+	From{{ upper_camel .GoPackage }}To{{ upper_camel .PreviousPackage }}(src *{{ .GoPackage }}.{{ upper_camel $resourceName }}) *{{ .PreviousPackage }}.{{ upper_camel $resourceName }}
 	{{ end }}
 	{{ end }}
 }
 
-type DownConverter interface {
-	{{ range .ConversionConfig.ConvertibleResources }}
-	{{ if .PreviousProject }}
-	From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .PreviousProject.GoPackage }}(src *{{ .Project.GoPackage }}.{{ .Resource.Name }}) *{{ .PreviousProject.GoPackage }}.{{ .PreviousResource.Name }}
-	{{ end }}
-	{{ end }}
+type {{ lower_camel $resourceName }}Converter struct {
+	upConverter   {{ upper_camel $resourceName }}UpConverter
+	downConverter {{ upper_camel $resourceName }}DownConverter
 }
 
-type {{ upper_camel .ConversionConfig.Resource.Name }}Converter interface {
-	Convert(src, dst crd.SoloKitCrd) error
-}
-
-type {{ lower_camel .ConversionConfig.Resource.Name }}Converter struct {
-	upConverter   UpConverter
-	downConverter DownConverter
-}
-
-func New{{ upper_camel .ConversionConfig.Resource.Name }}Converter(u UpConverter, d DownConverter) crd.Converter {
-	return &{{ lower_camel .ConversionConfig.Resource.Name }}Converter{
+func New{{ upper_camel $resourceName }}Converter(u {{ upper_camel $resourceName }}UpConverter, d {{ upper_camel $resourceName }}DownConverter) crd.Converter {
+	return &{{ lower_camel $resourceName }}Converter{
 		upConverter:   u,
 		downConverter: d,
 	}
 }
 
-func (c *{{ lower_camel .ConversionConfig.Resource.Name }}Converter) Convert(src, dst crd.SoloKitCrd) error {
+func (c *{{ lower_camel $resourceName }}Converter) Convert(src, dst crd.SoloKitCrd) error {
 	srcVersion, err := kubeapi.ParseVersion(src.GetObjectKind().GroupVersionKind().Version)
 	if err != nil {
 		return err
@@ -68,35 +67,37 @@ func (c *{{ lower_camel .ConversionConfig.Resource.Name }}Converter) Convert(src
 	return crd.Copy(src, dst)
 }
 
-func (c *{{ lower_camel .ConversionConfig.Resource.Name }}Converter) convertDown(src, dst crd.SoloKitCrd) error {
+func (c *{{ lower_camel $resourceName }}Converter) convertDown(src, dst crd.SoloKitCrd) error {
 	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
 		return crd.Copy(src, dst)
 	}
 
 	switch t := src.(type) {
-	{{ range .ConversionConfig.ConvertibleResources }}
-	{{ if .PreviousProject }}
-	case *{{ lower_camel .Project.GoPackage }}.{{ upper_camel .Resource.Name }}:
-		return c.convertUp(c.upConverter.From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .PreviousProject.GoPackage }}(t), dst)
+	{{ range .Projects }}
+	{{ if .PreviousPackage }}
+	case *{{ lower_camel .GoPackage }}.{{ upper_camel $resourceName }}:
+		return c.convertUp(c.upConverter.From{{ upper_camel .GoPackage }}To{{ upper_camel .PreviousPackage }}(t), dst)
 	{{ end }}
 	{{ end }}
 	}
 	return errors.New("unrecognized source type, this should never happen")
 }
 
-func (c *{{ lower_camel .ConversionConfig.Resource.Name }}Converter) convertUp(src, dst crd.SoloKitCrd) error {
+func (c *{{ lower_camel $resourceName }}Converter) convertUp(src, dst crd.SoloKitCrd) error {
 	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
 		return crd.Copy(src, dst)
 	}
 
 	switch t := src.(type) {
-	{{ range .ConversionConfig.ConvertibleResources }}
-	{{ if .NextProject }}
-	case *{{ lower_camel .Project.GoPackage }}.{{ upper_camel .Resource.Name }}:
-		return c.convertUp(c.upConverter.From{{ upper_camel .Project.GoPackage }}To{{ upper_camel .NextProject.GoPackage }}(t), dst)
+	{{ range .Projects }}
+	{{ if .NextPackage }}
+	case *{{ lower_camel .GoPackage }}.{{ upper_camel $resourceName }}:
+		return c.convertUp(c.upConverter.From{{ upper_camel .GoPackage }}To{{ upper_camel .NextPackage }}(t), dst)
 	{{ end }}
 	{{ end }}
 	}
 	return errors.New("unrecognized source type, this should never happen")
 }
+
+{{ end }}
 `))
