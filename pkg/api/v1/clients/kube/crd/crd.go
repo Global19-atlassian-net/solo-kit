@@ -34,7 +34,7 @@ type Converter interface {
 
 type SoloKitCrd interface {
 	runtime.Object
-	resources.InputResource
+	resources.Resource
 }
 
 type CrdMeta struct {
