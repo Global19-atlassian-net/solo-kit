@@ -15,7 +15,7 @@ type ConversionConfig struct {
 	GoPackage string `json:"go_package"`
 
 	// set by load
-	Conversions    []*Conversion
+	Conversions    map[string]*Conversion
 	ConversionFile string
 }
 

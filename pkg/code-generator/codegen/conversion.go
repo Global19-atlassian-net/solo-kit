@@ -6,21 +6,17 @@ import (
 
 	"github.com/solo-io/solo-kit/pkg/errors"
 
-	"github.com/iancoleman/strcase"
 	"github.com/solo-io/go-utils/log"
 	code_generator "github.com/solo-io/solo-kit/pkg/code-generator"
 	"github.com/solo-io/solo-kit/pkg/code-generator/codegen/templates"
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func GenerateConversionFiles(projects []*model.Project) (code_generator.Files, error) {
+func GenerateConversionFiles(config *model.ConversionConfig, projects []*model.Project) (code_generator.Files, error) {
 	var files code_generator.Files
-	// GroupKind -> Resource
-	//convertibleResources := make(map[string][]*model.ConvertibleResource)
 
-	for _, project := range projects {
+	for index, project := range projects {
 		for _, res := range project.Resources {
-			// TODO break this out for reuse
 			// only generate files for the resources in our group, otherwise we import
 			if !project.ProjectConfig.IsOurProto(res.Filename) && !res.IsCustom {
 				log.Printf("not generating solo-kit "+
@@ -32,54 +28,71 @@ func GenerateConversionFiles(projects []*model.Project) (code_generator.Files, e
 					"clients for resource %v.%v, "+
 					"custom resources from a different project are not generated", res.GoPackage, res.Name, project.ProjectConfig.GoPackage)
 				continue
+			} else if !res.IsCustom {
+				log.Printf("not generating solo-kit conversion resources for non-custom resource %v", res.Name)
+				continue
 			}
 
-			if res.IsCustom {
-				//var group string
-				//if res.Project.ProjectConfig.CrdGroupOverride != "" {
-				//	group = res.Project.ProjectConfig.CrdGroupOverride
-				//} else {
-				//	group = res.Project.ProtoPackage
-				//}
-				//kind := res.CustomResource.Type
-				//gk := group+kind
-				//convertibleResources[kind] = append(convertibleResources[kind], res)
+			var conversion *model.Conversion
+			var found bool
+			goType := res.CustomResource.Type
+			if conversion, found = config.Conversions[goType]; !found {
+				conversion = &model.Conversion{
+					Name:     goType,
+					Projects: make([]*model.ConversionProject, 0, len(projects)),
+				}
 			}
+			conversion.Projects = append(conversion.Projects, getConversionProject(index, projects))
+			config.Conversions[goType] = conversion
 		}
 	}
 
-	//for _, resources := range convertibleResources {
-	//	fs, err := generateFilesForResourceList(resources)
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	files = append(files, fs...)
-	//}
+	fs, err := generateFilesForConversionConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	files = append(files, fs...)
 
 	return files, nil
 }
 
-func generateFilesForResourceList(resources []*model.ConvertibleResource) (code_generator.Files, error) {
+func generateFilesForConversionConfig(config *model.ConversionConfig) (code_generator.Files, error) {
 	var v code_generator.Files
-	for suffix, tmpl := range map[string]*template.Template{
-		"_converter.sk.go": templates.ConverterTemplate,
+	for name, tmpl := range map[string]*template.Template{
+		"resource_converter.sk.go": templates.ConverterTemplate,
 	} {
-		content, err := generateResourceListFile(resources, tmpl)
+		content, err := generateResourceListFile(config, tmpl)
 		if err != nil {
-			return nil, errors.Wrapf(err, "internal error: processing template '%v' for resource list %v failed", tmpl.ParseName, resources[0].Resource.Name)
+			return nil, errors.Wrapf(err, "internal error: processing template '%v' for resource list %v failed", tmpl.ParseName, name)
 		}
 		v = append(v, code_generator.File{
-			Filename: strcase.ToSnake(resources[0].Resource.Name) + suffix,
+			Filename: name,
 			Content:  content,
 		})
 	}
 	return v, nil
 }
 
-func generateResourceListFile(resources []*model.ConvertibleResource, tmpl *template.Template) (string, error) {
+func generateResourceListFile(config *model.ConversionConfig, tmpl *template.Template) (string, error) {
 	buf := &bytes.Buffer{}
-	if err := tmpl.Execute(buf, resources); err != nil {
+	if err := tmpl.Execute(buf, config); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+func getConversionProject(index int, projects []*model.Project) *model.ConversionProject {
+	var nextPackage, previousPackage string
+	if index < len(projects)-2 {
+		nextPackage = projects[index+1].ProjectConfig.GoPackage
+	}
+	if index > 0 {
+		previousPackage = projects[index-1].ProjectConfig.GoPackage
+	}
+
+	return &model.ConversionProject{
+		GoPackage:       projects[index].ProjectConfig.GoPackage,
+		NextPackage:     nextPackage,
+		PreviousPackage: previousPackage,
+	}
 }
