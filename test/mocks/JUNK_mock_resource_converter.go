@@ -1,18 +1,14 @@
 package mocks
 
 import (
-	"errors"
-	"reflect"
+	"github.com/solo-io/go-utils/errors"
 
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
-	"github.com/solo-io/solo-kit/pkg/utils/protoutils"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
 	"github.com/solo-io/solo-kit/test/mocks/v1alpha1"
 	"github.com/solo-io/solo-kit/test/mocks/v2alpha1"
 )
-
-var unrecognizedTypeError = errors.New("unrecognized source type. Should never happen")
 
 type UpConverter interface {
 	FromV1Alpha1ToV1(src *v1alpha1.MockResource) *v1.MockResource
@@ -59,12 +55,12 @@ func (c *mockResourceConverter) Convert(src, dst crd.SoloKitCrd) error {
 	} else if srcVersion.LessThan(dstVersion) {
 		return c.convertUp(src, dst)
 	}
-	return writeSrcToDst(src, dst)
+	return crd.Copy(src, dst)
 }
 
 func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) error {
-	if reflect.TypeOf(src) == reflect.TypeOf(dst) {
-		return writeSrcToDst(src, dst)
+	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+		return crd.Copy(src, dst)
 	}
 
 	switch t := src.(type) {
@@ -73,12 +69,12 @@ func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) error {
 	case *v1.MockResource:
 		return c.convertDown(c.downConverter.FromV1ToV1Alpha1(t), dst)
 	}
-	return unrecognizedTypeError
+	return errors.New("Unrecognized source type. Should never happen.")
 }
 
 func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) error {
-	if reflect.TypeOf(src) == reflect.TypeOf(dst) {
-		return writeSrcToDst(src, dst)
+	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+		return crd.Copy(src, dst)
 	}
 
 	switch t := src.(type) {
@@ -87,17 +83,5 @@ func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) error {
 	case *v1.MockResource:
 		return c.convertUp(c.upConverter.FromV1ToV2Alpha1(t), dst)
 	}
-	return unrecognizedTypeError
-}
-
-func writeSrcToDst(src, dst crd.SoloKitCrd) error {
-	srcBytes, err := protoutils.MarshalBytes(src)
-	if err != nil {
-		return err
-	}
-	err = protoutils.UnmarshalBytes(srcBytes, dst)
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.New("Unrecognized source type. Should never happen.")
 }

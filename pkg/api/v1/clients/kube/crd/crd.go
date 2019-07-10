@@ -23,11 +23,6 @@ var (
 	}
 )
 
-type Ladder interface {
-	Climb(src SoloKitCrd, dst SoloKitCrd) error
-	Descend(src SoloKitCrd, dst SoloKitCrd) error
-}
-
 type Converter interface {
 	Convert(src SoloKitCrd, dst SoloKitCrd) error
 }
