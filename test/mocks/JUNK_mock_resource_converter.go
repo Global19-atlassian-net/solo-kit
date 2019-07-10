@@ -1,7 +1,7 @@
 package mocks
 
 import (
-	"github.com/solo-io/go-utils/errors"
+	"errors"
 
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
@@ -69,7 +69,7 @@ func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) error {
 	case *v1.MockResource:
 		return c.convertDown(c.downConverter.FromV1ToV1Alpha1(t), dst)
 	}
-	return errors.New("Unrecognized source type. Should never happen.")
+	return errors.New("unrecognized source type, this should never happen")
 }
 
 func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) error {
@@ -83,5 +83,5 @@ func (c *mockResourceConverter) convertUp(src, dst crd.SoloKitCrd) error {
 	case *v1.MockResource:
 		return c.convertUp(c.upConverter.FromV1ToV2Alpha1(t), dst)
 	}
-	return errors.New("Unrecognized source type. Should never happen.")
+	return errors.New("unrecognized source type, this should never happen")
 }
