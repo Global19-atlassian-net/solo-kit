@@ -8,7 +8,7 @@
   ],
   "custom_resources": [
     {
-      "package": "github.com/solo-io/solo-kit/test/mocks/v1/customtype",
+      "package": "github.com/solo-io/solo-kit/test/mocks/api/v1/customtype",
       "type": "MockCustomType",
       "plural_name": "mcts",
       "short_name": "mct"
@@ -34,7 +34,7 @@
       },
       {
         "name": "MockCustomType",
-        "package": "github.com/solo-io/solo-kit/test/mocks/v1/customtype"
+        "package": "github.com/solo-io/solo-kit/test/mocks/api/v1/customtype"
       },
       {
         "name": "Pod",

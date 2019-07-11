@@ -5,7 +5,7 @@ package v1
 import (
 	"sort"
 
-	github_com_solo_io_solo_kit_test_mocks_v1_customtype "github.com/solo-io/solo-kit/test/mocks/v1/customtype"
+	github_com_solo_io_solo_kit_test_mocks_api_v1_customtype "github.com/solo-io/solo-kit/test/mocks/api/v1/customtype"
 
 	"github.com/solo-io/go-utils/hashutils"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
@@ -26,13 +26,13 @@ func NewMockCustomType(namespace, name string) *MockCustomType {
 
 type CloneableMockCustomType interface {
 	resources.Resource
-	Clone() *github_com_solo_io_solo_kit_test_mocks_v1_customtype.MockCustomType
+	Clone() *github_com_solo_io_solo_kit_test_mocks_api_v1_customtype.MockCustomType
 }
 
-var _ CloneableMockCustomType = &github_com_solo_io_solo_kit_test_mocks_v1_customtype.MockCustomType{}
+var _ CloneableMockCustomType = &github_com_solo_io_solo_kit_test_mocks_api_v1_customtype.MockCustomType{}
 
 type MockCustomType struct {
-	github_com_solo_io_solo_kit_test_mocks_v1_customtype.MockCustomType
+	github_com_solo_io_solo_kit_test_mocks_api_v1_customtype.MockCustomType
 }
 
 func (r *MockCustomType) Clone() resources.Resource {
