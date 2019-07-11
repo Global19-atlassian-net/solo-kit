@@ -580,18 +580,21 @@ func importCustomResources(imports []string) ([]model.CustomResourceConfig, erro
 		if err != nil {
 			return nil, err
 		}
-		var projectConfig model.ProjectConfig
-		err = json.Unmarshal(byt, &projectConfig)
+
+		var soloKitProject model.SoloKitProject
+		err = json.Unmarshal(byt, &soloKitProject)
 		if err != nil {
 			return nil, err
 		}
-		var customResources []model.CustomResourceConfig
-		for _, v := range projectConfig.CustomResources {
-			v.Package = projectConfig.GoPackage
-			v.Imported = true
-			customResources = append(customResources, v)
+		for _, vc := range soloKitProject.VersionConfigs {
+			var customResources []model.CustomResourceConfig
+			for _, cr := range vc.CustomResources {
+				cr.Package = vc.GoPackage
+				cr.Imported = true
+				customResources = append(customResources, cr)
+			}
+			results = append(results, customResources...)
 		}
-		results = append(results, customResources...)
 	}
 
 	return results, nil

@@ -11,8 +11,7 @@ func main() {
 
 	log.Printf("starting generate")
 	if err := cmd.Generate(cmd.GenerateOptions{
-		// TODO joekelley don't merge this
-		RelativeRoot:  "./test",
+		RelativeRoot:  ".",
 		CompileProtos: true,
 		SkipGenMocks:  true,
 	}); err != nil {
