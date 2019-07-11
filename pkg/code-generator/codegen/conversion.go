@@ -82,7 +82,8 @@ func getConversionsFromResourceProjects(resNameToProjects map[string][]*model.Pr
 func generateFilesForConversionConfig(config *model.ConversionConfig) (code_generator.Files, error) {
 	var v code_generator.Files
 	for name, tmpl := range map[string]*template.Template{
-		"resource_converter.sk.go": templates.ConverterTemplate,
+		"resource_converter.sk.go":   templates.ConverterTemplate,
+		"resource_converter_test.go": templates.ConverterTestTemplate,
 	} {
 		content, err := generateConversionFile(config, tmpl)
 		if err != nil {
