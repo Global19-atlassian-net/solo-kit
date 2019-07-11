@@ -4,8 +4,7 @@ import (
 	"text/template"
 )
 
-var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package mocks
-// TODO joekelley pkg name
+var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package {{ .ConversionGoPackageShort }}
 
 import (
 	"errors"

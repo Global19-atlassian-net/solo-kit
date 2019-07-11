@@ -3,7 +3,6 @@ package codegen
 import (
 	"bytes"
 	"sort"
-	"strings"
 	"text/template"
 
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
@@ -15,7 +14,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func GenerateConversionFiles(config *model.ConversionConfig, projects []*model.Project) (code_generator.Files, error) {
+func GenerateConversionFiles(soloKitProject *model.SoloKitProject, projects []*model.Project) (code_generator.Files, error) {
 	var files code_generator.Files
 
 	sort.SliceStable(projects, func(i, j int) bool {
@@ -54,9 +53,9 @@ func GenerateConversionFiles(config *model.ConversionConfig, projects []*model.P
 		}
 	}
 
-	config.Conversions = getConversionsFromResourceProjects(resourceNameToProjects)
+	soloKitProject.Conversions = getConversionsFromResourceProjects(resourceNameToProjects)
 
-	fs, err := generateFilesForConversionConfig(config)
+	fs, err := generateFilesForConversionConfig(soloKitProject)
 	if err != nil {
 		return nil, err
 	}
@@ -84,13 +83,13 @@ func getConversionsFromResourceProjects(resNameToProjects map[string][]*model.Pr
 	return conversions
 }
 
-func generateFilesForConversionConfig(config *model.ConversionConfig) (code_generator.Files, error) {
+func generateFilesForConversionConfig(soloKitProject *model.SoloKitProject) (code_generator.Files, error) {
 	var v code_generator.Files
 	for name, tmpl := range map[string]*template.Template{
 		"resource_converter.sk.go":   templates.ConverterTemplate,
 		"resource_converter_test.go": templates.ConverterTestTemplate,
 	} {
-		content, err := generateConversionFile(config, tmpl)
+		content, err := generateConversionFile(soloKitProject, tmpl)
 		if err != nil {
 			return nil, errors.Wrapf(err, "internal error: processing template '%v' for resource list %v failed", tmpl.ParseName, name)
 		}
@@ -100,9 +99,8 @@ func generateFilesForConversionConfig(config *model.ConversionConfig) (code_gene
 		})
 	}
 
-	goPackageSegments := strings.Split(config.GoPackage, "/")
 	testSuite := &model.TestSuite{
-		PackageName: goPackageSegments[len(goPackageSegments)-1],
+		PackageName: soloKitProject.ConversionGoPackageShort,
 	}
 	for suffix, tmpl := range map[string]*template.Template{
 		"_suite_test.go": templates.SimpleTestSuiteTemplate,
@@ -121,9 +119,9 @@ func generateFilesForConversionConfig(config *model.ConversionConfig) (code_gene
 	return v, nil
 }
 
-func generateConversionFile(config *model.ConversionConfig, tmpl *template.Template) (string, error) {
+func generateConversionFile(soloKitProject *model.SoloKitProject, tmpl *template.Template) (string, error) {
 	buf := &bytes.Buffer{}
-	if err := tmpl.Execute(buf, config); err != nil {
+	if err := tmpl.Execute(buf, soloKitProject); err != nil {
 		return "", err
 	}
 	return buf.String(), nil

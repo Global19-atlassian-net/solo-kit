@@ -28,9 +28,9 @@ type SoloKitProject struct {
 	ConversionGoPackage string `json:"conversion_go_package"`
 
 	// set by load
-	ProjectFile    string
-	Conversions    []*Conversion
-	ConversionFile string
+	ProjectFile              string
+	Conversions              []*Conversion
+	ConversionGoPackageShort string
 }
 
 type ProjectConfig struct {

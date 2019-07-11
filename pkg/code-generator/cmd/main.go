@@ -180,30 +180,6 @@ func Generate(opts GenerateOptions) error {
 				}
 			}
 
-			code, err := codegen.GenerateConversionFiles(skp, allProjects)
-			if err != nil {
-				return err
-			}
-
-			outDir := filepath.Join(gopathSrc(), conversionConfig.GoPackage)
-
-			for _, file := range code {
-				path := filepath.Join(outDir, file.Filename)
-				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-					return err
-				}
-				if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-					return err
-				}
-				if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
-					return errors.Wrapf(err, "gofmt failed: %s", out)
-				}
-
-				if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
-					return errors.Wrapf(err, "goimports failed: %s", out)
-				}
-			}
-
 			outDir := filepath.Join(gopathSrc(), project.ProjectConfig.GoPackage)
 
 			for _, file := range code {
@@ -232,14 +208,35 @@ func Generate(opts GenerateOptions) error {
 				}
 			}
 		}
-	}
 
-	// Generate mocks
-	// need to run after to make sure all resources have already been written
-	// Set this env var during tests so that mocks are not generated
-	if !opts.SkipGenMocks {
-		if err := genMocks(code, outDir, absoluteRoot); err != nil {
-			return err
+		// TODO joekelley know when to skip this (no go package)
+		if skp.ConversionGoPackage != "" {
+			goPackageSegments := strings.Split(skp.ConversionGoPackage, "/")
+			skp.ConversionGoPackageShort = goPackageSegments[len(goPackageSegments)-1]
+
+			code, err := codegen.GenerateConversionFiles(skp, allProjects)
+			if err != nil {
+				return err
+			}
+
+			outDir := filepath.Join(gopathSrc(), skp.ConversionGoPackage)
+
+			for _, file := range code {
+				path := filepath.Join(outDir, file.Filename)
+				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+					return err
+				}
+				if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
+					return err
+				}
+				if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
+					return errors.Wrapf(err, "gofmt failed: %s", out)
+				}
+
+				if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
+					return errors.Wrapf(err, "goimports failed: %s", out)
+				}
+			}
 		}
 	}
 
@@ -598,13 +595,4 @@ func importCustomResources(imports []string) ([]model.CustomResourceConfig, erro
 	}
 
 	return results, nil
-}
-
-func getConversionConfigFromRoot(root string) (*model.ConversionConfig, error) {
-	conversionConfig, err := model.LoadConversionConfig(strings.Join([]string{root, model.ConversionConfigFilename}, "/"))
-	if err != nil {
-		return nil, err
-	}
-
-	return &conversionConfig, nil
 }

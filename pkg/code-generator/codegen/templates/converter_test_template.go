@@ -4,15 +4,14 @@ import (
 	"text/template"
 )
 
-var ConverterTestTemplate = template.Must(template.New("converter_test").Funcs(Funcs).Parse(`package mocks_test
-// TODO joekelley pkg name
+var ConverterTestTemplate = template.Must(template.New("converter_test").Funcs(Funcs).Parse(`package {{ .ConversionGoPackageShort }}_test
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
-	"{{ .GoPackage }}"
+	"{{ .ConversionGoPackage }}"
 
 	{{- range .Conversions }}
 	{{- range .Projects }}
