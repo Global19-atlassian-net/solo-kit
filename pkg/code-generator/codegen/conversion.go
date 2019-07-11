@@ -61,6 +61,10 @@ func GenerateConversionFiles(config *model.ConversionConfig, projects []*model.P
 	}
 	files = append(files, fs...)
 
+	for i := range files {
+		files[i].Content = fileHeader + files[i].Content
+	}
+
 	return files, nil
 }
 
