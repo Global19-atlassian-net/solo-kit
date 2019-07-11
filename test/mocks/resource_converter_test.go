@@ -36,7 +36,7 @@ var _ = Describe("FakeResourceConverter", func() {
 			dst := &v1.FakeResource{}
 			err := converter.Convert(src, dst)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dst.GetMetadata().Name).To(Equal("v2alpha1"))
+			Expect(dst.GetMetadata().Name).To(Equal("v1"))
 		})
 
 		It("converts all the way down", func() {

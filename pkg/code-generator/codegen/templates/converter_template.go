@@ -94,7 +94,7 @@ func (c *{{ lower_camel $resourceName }}Converter) convertDown(src, dst crd.Solo
 	{{- range .Projects }}
 	{{- if .PreviousVersion }}
 	case *{{ .Version }}.{{ upper_camel $resourceName }}:
-		return c.convertUp(c.downConverter.From{{ upper_camel .Version }}To{{ upper_camel .PreviousVersion }}(t), dst)
+		return c.convertDown(c.downConverter.From{{ upper_camel .Version }}To{{ upper_camel .PreviousVersion }}(t), dst)
 	{{- end }}
 	{{- end }}
 	}

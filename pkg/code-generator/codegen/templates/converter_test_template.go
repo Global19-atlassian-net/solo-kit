@@ -45,7 +45,7 @@ var _ = Describe("{{ upper_camel $resource_name }}Converter", func() {
 			dst := &{{ (index .Projects (add_int (len .Projects) -1)).Version }}.{{ upper_camel $resource_name }}{}
 			err := converter.Convert(src, dst)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dst.GetMetadata().Name).To(Equal("v2alpha1"))
+			Expect(dst.GetMetadata().Name).To(Equal("{{ (index .Projects (add_int (len .Projects) -1)).Version }}"))
 		})
 		
 		It("converts all the way down", func() {
@@ -53,7 +53,7 @@ var _ = Describe("{{ upper_camel $resource_name }}Converter", func() {
 			dst := &{{ (index .Projects 0).Version }}.{{ upper_camel $resource_name }}{}
 			err := converter.Convert(src, dst)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(dst.GetMetadata().Name).To(Equal("v1alpha1"))
+			Expect(dst.GetMetadata().Name).To(Equal("{{ (index .Projects 0).Version }}"))
 		})
 	})
 })

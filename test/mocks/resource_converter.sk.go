@@ -71,7 +71,7 @@ func (c *fakeResourceConverter) convertDown(src, dst crd.SoloKitCrd) error {
 
 	switch t := src.(type) {
 	case *v1.FakeResource:
-		return c.convertUp(c.downConverter.FromV1ToV1Alpha1(t), dst)
+		return c.convertDown(c.downConverter.FromV1ToV1Alpha1(t), dst)
 	}
 	return errors.New("unrecognized source type, this should never happen")
 }
@@ -137,9 +137,9 @@ func (c *mockResourceConverter) convertDown(src, dst crd.SoloKitCrd) error {
 
 	switch t := src.(type) {
 	case *v1.MockResource:
-		return c.convertUp(c.downConverter.FromV1ToV1Alpha1(t), dst)
+		return c.convertDown(c.downConverter.FromV1ToV1Alpha1(t), dst)
 	case *v2alpha1.MockResource:
-		return c.convertUp(c.downConverter.FromV2Alpha1ToV1(t), dst)
+		return c.convertDown(c.downConverter.FromV2Alpha1ToV1(t), dst)
 	}
 	return errors.New("unrecognized source type, this should never happen")
 }
