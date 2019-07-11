@@ -4,7 +4,7 @@ import (
 	"text/template"
 )
 
-var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package {{ .ConversionConfig.GoPackage }}
+var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package converter
 
 import (
 	"errors"
@@ -13,28 +13,30 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 
 	// TODO joekelley maybe specify path/path/pkg
-	{{ range .ConversionConfig.ConvertibleResources }}
-	{{ .Project.ProjectConfig.GoPackage }}
-	{{ end }}
+	{{- range .Conversions }}
+	{{- range .Projects }}
+	"{{ .GoPackage }}"
+	{{- end }}
+	{{- end }}
 )
 
-{{ range .ConversionConfig.Conversions }}
+{{- range .Conversions }}
 {{ $resourceName := .Name }}
 
 type {{ upper_camel $resourceName }}UpConverter interface {
-	{{ range .Projects }}
-	{{ if .NextPackage }}
-	From{{ upper_camel .GoPackage }}To{{ upper_camel .NextPackage }}(src *{{ .GoPackage }}.{{ upper_camel $resourceName }}) *{{ .NextPackage }}.{{ upper_camel $resourceName }}
-	{{ end }}
-	{{ end }}
+	{{- range .Projects }}
+	{{- if .NextPackage }}
+	From{{ upper_camel .Version }}To{{ upper_camel .NextPackage }}(src *{{ .Version }}.{{ upper_camel $resourceName }}) *{{ .NextPackage }}.{{ upper_camel $resourceName }}
+	{{- end }}
+	{{- end }}
 }
 
 type {{ upper_camel $resourceName }}DownConverter interface {
-	{{ range .ConversionConfig.ConvertibleResources }}
-	{{ if .PreviousPackage }}
-	From{{ upper_camel .GoPackage }}To{{ upper_camel .PreviousPackage }}(src *{{ .GoPackage }}.{{ upper_camel $resourceName }}) *{{ .PreviousPackage }}.{{ upper_camel $resourceName }}
-	{{ end }}
-	{{ end }}
+	{{- range .Projects }}
+	{{- if .PreviousPackage }}
+	From{{ upper_camel .Version }}To{{ upper_camel .PreviousPackage }}(src *{{ .Version }}.{{ upper_camel $resourceName }}) *{{ .PreviousPackage }}.{{ upper_camel $resourceName }}
+	{{- end }}
+	{{- end }}
 }
 
 type {{ lower_camel $resourceName }}Converter struct {
@@ -67,37 +69,37 @@ func (c *{{ lower_camel $resourceName }}Converter) Convert(src, dst crd.SoloKitC
 	return crd.Copy(src, dst)
 }
 
-func (c *{{ lower_camel $resourceName }}Converter) convertDown(src, dst crd.SoloKitCrd) error {
-	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
-		return crd.Copy(src, dst)
-	}
-
-	switch t := src.(type) {
-	{{ range .Projects }}
-	{{ if .PreviousPackage }}
-	case *{{ lower_camel .GoPackage }}.{{ upper_camel $resourceName }}:
-		return c.convertUp(c.upConverter.From{{ upper_camel .GoPackage }}To{{ upper_camel .PreviousPackage }}(t), dst)
-	{{ end }}
-	{{ end }}
-	}
-	return errors.New("unrecognized source type, this should never happen")
-}
-
 func (c *{{ lower_camel $resourceName }}Converter) convertUp(src, dst crd.SoloKitCrd) error {
 	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
 		return crd.Copy(src, dst)
 	}
 
 	switch t := src.(type) {
-	{{ range .Projects }}
-	{{ if .NextPackage }}
-	case *{{ lower_camel .GoPackage }}.{{ upper_camel $resourceName }}:
-		return c.convertUp(c.upConverter.From{{ upper_camel .GoPackage }}To{{ upper_camel .NextPackage }}(t), dst)
-	{{ end }}
-	{{ end }}
+	{{- range .Projects }}
+	{{- if .NextPackage }}
+	case *{{ .Version }}.{{ upper_camel $resourceName }}:
+		return c.convertUp(c.upConverter.From{{ upper_camel .Version }}To{{ upper_camel .NextPackage }}(t), dst)
+	{{- end }}
+	{{- end }}
 	}
 	return errors.New("unrecognized source type, this should never happen")
 }
 
-{{ end }}
+func (c *{{ lower_camel $resourceName }}Converter) convertDown(src, dst crd.SoloKitCrd) error {
+	if src.GetObjectKind().GroupVersionKind().Version == dst.GetObjectKind().GroupVersionKind().Version {
+		return crd.Copy(src, dst)
+	}
+
+	switch t := src.(type) {
+	{{- range .Projects }}
+	{{- if .PreviousPackage }}
+	case *{{ .Version }}.{{ upper_camel $resourceName }}:
+		return c.convertUp(c.downConverter.From{{ upper_camel .Version }}To{{ upper_camel .PreviousPackage }}(t), dst)
+	{{- end }}
+	{{- end }}
+	}
+	return errors.New("unrecognized source type, this should never happen")
+}
+
+{{- end }}
 `))

@@ -25,6 +25,7 @@ type Conversion struct {
 }
 
 type ConversionProject struct {
+	Version         string
 	GoPackage       string
 	NextPackage     string
 	PreviousPackage string
