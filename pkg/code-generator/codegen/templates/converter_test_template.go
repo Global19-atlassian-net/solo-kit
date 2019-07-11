@@ -7,23 +7,17 @@ import (
 var ConverterTestTemplate = template.Must(template.New("converter_test").Funcs(Funcs).Parse(`package mocks_test
 // TODO joekelley pkg name
 
-{{ $imports := new_str_slice }}
-{{- range .Conversions }}
-{{- range .Projects }}
-{{ $imports := append_str_slice $imports .GoPackage }}
-{{- end }}
-{{- end }}
-
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
-	// TODO joekelley pkg name
 	"github.com/solo-io/solo-kit/test/mocks"
 
-	{{- range unique $imports }}
-	"{{ . }}"
+	{{- range .Conversions }}
+	{{- range .Projects }}
+	{{ .Version }} "{{ .GoPackage }}"
+	{{- end }}
 	{{- end }}
 )
 

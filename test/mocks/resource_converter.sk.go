@@ -8,8 +8,8 @@ import (
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
-	"github.com/solo-io/solo-kit/test/mocks/v1alpha1"
-	"github.com/solo-io/solo-kit/test/mocks/v2alpha1"
+	v1alpha1 "github.com/solo-io/solo-kit/test/mocks/v1alpha1"
+	v2alpha1 "github.com/solo-io/solo-kit/test/mocks/v2alpha1"
 )
 
 type FakeResourceUpConverter interface {

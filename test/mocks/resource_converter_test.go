@@ -7,13 +7,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
-
-	// TODO joekelley pkg name
 	"github.com/solo-io/solo-kit/test/mocks"
-	"github.com/solo-io/solo-kit/test/mocks/v1"
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
-	"github.com/solo-io/solo-kit/test/mocks/v1alpha1"
-	"github.com/solo-io/solo-kit/test/mocks/v2alpha1"
+	v1alpha1 "github.com/solo-io/solo-kit/test/mocks/v1alpha1"
+	v2alpha1 "github.com/solo-io/solo-kit/test/mocks/v2alpha1"
 )
 
 var converter crd.Converter

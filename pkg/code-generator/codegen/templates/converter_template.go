@@ -15,7 +15,7 @@ import (
 
 	{{- range .Conversions }}
 	{{- range .Projects }}
-	"{{ .GoPackage }}"
+	{{ .Version }} "{{ .GoPackage }}"
 	{{- end }}
 	{{- end }}
 )
