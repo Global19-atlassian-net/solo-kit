@@ -1,11 +1,12 @@
-package converter
+package mocks
+
+// TODO joekelley pkg name
 
 import (
 	"errors"
 
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
-
 	v1 "github.com/solo-io/solo-kit/test/mocks/v1"
 	"github.com/solo-io/solo-kit/test/mocks/v1alpha1"
 	"github.com/solo-io/solo-kit/test/mocks/v2alpha1"
@@ -13,7 +14,6 @@ import (
 
 type FakeResourceUpConverter interface {
 	FromV1Alpha1ToV1(src *v1alpha1.FakeResource) *v1.FakeResource
-	FromV1ToV2Alpha1(src *v1.FakeResource) *v2alpha1.FakeResource
 }
 
 type FakeResourceDownConverter interface {
@@ -58,8 +58,6 @@ func (c *fakeResourceConverter) convertUp(src, dst crd.SoloKitCrd) error {
 	switch t := src.(type) {
 	case *v1alpha1.FakeResource:
 		return c.convertUp(c.upConverter.FromV1Alpha1ToV1(t), dst)
-	case *v1.FakeResource:
-		return c.convertUp(c.upConverter.FromV1ToV2Alpha1(t), dst)
 	}
 	return errors.New("unrecognized source type, this should never happen")
 }

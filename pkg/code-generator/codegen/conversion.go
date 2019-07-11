@@ -29,6 +29,8 @@ func GenerateConversionFiles(config *model.ConversionConfig, projects []*model.P
 		return vi.LessThan(vj)
 	})
 
+	resourceNameToProjects := make(map[string][]*model.Project)
+
 	for index, project := range projects {
 		for _, res := range project.Resources {
 			// only generate files for the resources in our group, otherwise we import
@@ -44,21 +46,14 @@ func GenerateConversionFiles(config *model.ConversionConfig, projects []*model.P
 				continue
 			}
 
-			var conversion *model.Conversion
-			var found bool
-			if conversion, found = config.Conversions[res.Name]; !found {
-				conversion = &model.Conversion{
-					Name:     res.Name,
-					Projects: make([]*model.ConversionProject, 0, len(projects)),
-				}
+			if _, found := resourceNameToProjects[res.Name]; !found {
+				resourceNameToProjects[res.Name] = make([]*model.Project, 0, len(projects)-index)
 			}
-			conversion.Projects = append(conversion.Projects, getConversionProject(index, projects))
-			config.Conversions[res.Name] = conversion
+			resourceNameToProjects[res.Name] = append(resourceNameToProjects[res.Name], project)
 		}
 	}
 
-	// TODO joekelley don't even add them
-	pruneConfig(config)
+	config.Conversions = getConversionsFromResourceProjects(resourceNameToProjects)
 
 	fs, err := generateFilesForConversionConfig(config)
 	if err != nil {
@@ -67,6 +62,21 @@ func GenerateConversionFiles(config *model.ConversionConfig, projects []*model.P
 	files = append(files, fs...)
 
 	return files, nil
+}
+
+func getConversionsFromResourceProjects(resNameToProjects map[string][]*model.Project) []*model.Conversion {
+	conversions := make([]*model.Conversion, 0, len(resNameToProjects))
+	for resName, projects := range resNameToProjects {
+		if len(projects) < 2 {
+			continue
+		}
+		conversion := &model.Conversion{
+			Name:     resName,
+			Projects: getConversionProjects(projects),
+		}
+		conversions = append(conversions, conversion)
+	}
+	return conversions
 }
 
 func generateFilesForConversionConfig(config *model.ConversionConfig) (code_generator.Files, error) {
@@ -94,27 +104,27 @@ func generateConversionFile(config *model.ConversionConfig, tmpl *template.Templ
 	return buf.String(), nil
 }
 
+func getConversionProjects(projects []*model.Project) []*model.ConversionProject {
+	conversionProjects := make([]*model.ConversionProject, 0, len(projects))
+	for index := range projects {
+		conversionProjects = append(conversionProjects, getConversionProject(index, projects))
+	}
+	return conversionProjects
+}
+
 func getConversionProject(index int, projects []*model.Project) *model.ConversionProject {
-	var nextPackage, previousPackage string
+	var nextVersion, previousVersion string
 	if index < len(projects)-1 {
-		nextPackage = projects[index+1].ProjectConfig.Version
+		nextVersion = projects[index+1].ProjectConfig.Version
 	}
 	if index > 0 {
-		previousPackage = projects[index-1].ProjectConfig.Version
+		previousVersion = projects[index-1].ProjectConfig.Version
 	}
 
 	return &model.ConversionProject{
 		Version:         projects[index].ProjectConfig.Version,
 		GoPackage:       projects[index].ProjectConfig.GoPackage,
-		NextPackage:     nextPackage,
-		PreviousPackage: previousPackage,
-	}
-}
-
-func pruneConfig(config *model.ConversionConfig) {
-	for k, v := range config.Conversions {
-		if len(v.Projects) < 2 {
-			delete(config.Conversions, k)
-		}
+		NextVersion:     nextVersion,
+		PreviousVersion: previousVersion,
 	}
 }

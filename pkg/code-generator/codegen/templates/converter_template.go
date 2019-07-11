@@ -4,7 +4,8 @@ import (
 	"text/template"
 )
 
-var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package converter
+var ConverterTemplate = template.Must(template.New("converter").Funcs(Funcs).Parse(`package mocks
+// TODO joekelley pkg name
 
 import (
 	"errors"
@@ -12,7 +13,6 @@ import (
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 
-	// TODO joekelley maybe specify path/path/pkg
 	{{- range .Conversions }}
 	{{- range .Projects }}
 	"{{ .GoPackage }}"
@@ -25,16 +25,16 @@ import (
 
 type {{ upper_camel $resourceName }}UpConverter interface {
 	{{- range .Projects }}
-	{{- if .NextPackage }}
-	From{{ upper_camel .Version }}To{{ upper_camel .NextPackage }}(src *{{ .Version }}.{{ upper_camel $resourceName }}) *{{ .NextPackage }}.{{ upper_camel $resourceName }}
+	{{- if .NextVersion }}
+	From{{ upper_camel .Version }}To{{ upper_camel .NextVersion }}(src *{{ .Version }}.{{ upper_camel $resourceName }}) *{{ .NextVersion }}.{{ upper_camel $resourceName }}
 	{{- end }}
 	{{- end }}
 }
 
 type {{ upper_camel $resourceName }}DownConverter interface {
 	{{- range .Projects }}
-	{{- if .PreviousPackage }}
-	From{{ upper_camel .Version }}To{{ upper_camel .PreviousPackage }}(src *{{ .Version }}.{{ upper_camel $resourceName }}) *{{ .PreviousPackage }}.{{ upper_camel $resourceName }}
+	{{- if .PreviousVersion }}
+	From{{ upper_camel .Version }}To{{ upper_camel .PreviousVersion }}(src *{{ .Version }}.{{ upper_camel $resourceName }}) *{{ .PreviousVersion }}.{{ upper_camel $resourceName }}
 	{{- end }}
 	{{- end }}
 }
@@ -76,9 +76,9 @@ func (c *{{ lower_camel $resourceName }}Converter) convertUp(src, dst crd.SoloKi
 
 	switch t := src.(type) {
 	{{- range .Projects }}
-	{{- if .NextPackage }}
+	{{- if .NextVersion }}
 	case *{{ .Version }}.{{ upper_camel $resourceName }}:
-		return c.convertUp(c.upConverter.From{{ upper_camel .Version }}To{{ upper_camel .NextPackage }}(t), dst)
+		return c.convertUp(c.upConverter.From{{ upper_camel .Version }}To{{ upper_camel .NextVersion }}(t), dst)
 	{{- end }}
 	{{- end }}
 	}
@@ -92,9 +92,9 @@ func (c *{{ lower_camel $resourceName }}Converter) convertDown(src, dst crd.Solo
 
 	switch t := src.(type) {
 	{{- range .Projects }}
-	{{- if .PreviousPackage }}
+	{{- if .PreviousVersion }}
 	case *{{ .Version }}.{{ upper_camel $resourceName }}:
-		return c.convertUp(c.downConverter.From{{ upper_camel .Version }}To{{ upper_camel .PreviousPackage }}(t), dst)
+		return c.convertUp(c.downConverter.From{{ upper_camel .Version }}To{{ upper_camel .PreviousVersion }}(t), dst)
 	{{- end }}
 	{{- end }}
 	}

@@ -15,7 +15,7 @@ type ConversionConfig struct {
 	GoPackage string `json:"go_package"`
 
 	// set by load
-	Conversions    map[string]*Conversion
+	Conversions    []*Conversion
 	ConversionFile string
 }
 
@@ -26,9 +26,9 @@ type Conversion struct {
 
 type ConversionProject struct {
 	Version         string
+	NextVersion     string
+	PreviousVersion string
 	GoPackage       string
-	NextPackage     string
-	PreviousPackage string
 }
 
 func LoadConversionConfig(path string) (ConversionConfig, error) {
@@ -45,7 +45,6 @@ func LoadConversionConfig(path string) (ConversionConfig, error) {
 	if err != nil {
 		return ConversionConfig{}, err
 	}
-	cc.Conversions = make(map[string]*Conversion)
 	cc.ConversionFile = path
 	return cc, err
 }
