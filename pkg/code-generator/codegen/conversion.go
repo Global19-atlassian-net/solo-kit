@@ -3,6 +3,7 @@ package codegen
 import (
 	"bytes"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
@@ -98,12 +99,39 @@ func generateFilesForConversionConfig(config *model.ConversionConfig) (code_gene
 			Content:  content,
 		})
 	}
+
+	goPackageSegments := strings.Split(config.GoPackage, "/")
+	testSuite := &model.TestSuite{
+		PackageName: goPackageSegments[len(goPackageSegments)-1],
+	}
+	for suffix, tmpl := range map[string]*template.Template{
+		"_suite_test.go": templates.SimpleTestSuiteTemplate,
+	} {
+		name := testSuite.PackageName + suffix
+		content, err := generateTestSuiteFile(testSuite, tmpl)
+		if err != nil {
+			return nil, errors.Wrapf(err, "internal error: processing template '%v' for resource list %v failed", tmpl.ParseName, name)
+		}
+		v = append(v, code_generator.File{
+			Filename: name,
+			Content:  content,
+		})
+	}
+
 	return v, nil
 }
 
 func generateConversionFile(config *model.ConversionConfig, tmpl *template.Template) (string, error) {
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, config); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+func generateTestSuiteFile(suite *model.TestSuite, tmpl *template.Template) (string, error) {
+	buf := &bytes.Buffer{}
+	if err := tmpl.Execute(buf, suite); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
