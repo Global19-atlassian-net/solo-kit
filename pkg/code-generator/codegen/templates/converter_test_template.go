@@ -6,6 +6,8 @@ import (
 
 var ConverterTestTemplate = template.Must(template.New("converter_test").Funcs(Funcs).Parse(`package {{ .ConversionGoPackageShort }}_test
 
+{{ $short_package := .ConversionGoPackageShort }}
+
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -27,7 +29,7 @@ var converter crd.Converter
 
 var _ = Describe("{{ upper_camel $resource_name }}Converter", func() {
 	BeforeEach(func() {
-		converter = mocks.New{{ upper_camel $resource_name }}Converter({{ lower_camel $resource_name }}UpConverter{}, {{ lower_camel $resource_name }}DownConverter{})
+		converter = {{ $short_package }}.New{{ upper_camel $resource_name }}Converter({{ lower_camel $resource_name }}UpConverter{}, {{ lower_camel $resource_name }}DownConverter{})
 	})
 
 	Describe("Convert", func() {
