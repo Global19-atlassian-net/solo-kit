@@ -18,15 +18,26 @@ const ProjectConfigFilename = "solo-kit.json"
 
 // SOLO-KIT Descriptors from which code can be generated
 
+type SoloKitProject struct {
+	Title          string           `json:"title"`
+	Description    string           `json:"description"`
+	Name           string           `json:"name"`
+	DocsDir        string           `json:"docs_dir"`
+	VersionConfigs []*ProjectConfig `json:"version_configs"`
+
+	ConversionGoPackage string `json:"conversion_go_package"`
+
+	// set by load
+	ProjectFile    string
+	Conversions    []*Conversion
+	ConversionFile string
+}
+
 type ProjectConfig struct {
-	Title          string                      `json:"title"`
-	Description    string                      `json:"description"`
-	Name           string                      `json:"name"`
 	Version        string                      `json:"version"`
 	SchemaLink     string                      `json:"schema_link"`
-	DocsDir        string                      `json:"docs_dir"`
 	ResourceGroups map[string][]ResourceConfig `json:"resource_groups"`
-	// if set, this group will override the proto pacakge typically used
+	// if set, this group will override the proto package typically used
 	// as the api group for the crd
 	CrdGroupOverride string `json:"crd_group_override"`
 
@@ -40,8 +51,8 @@ type ProjectConfig struct {
 	GoPackage string `json:"go_package"`
 
 	// set by load
-	ProjectFile   string
-	ProjectProtos []string
+	SoloKitProject SoloKitProject
+	ProjectProtos  []string
 }
 
 func (p ProjectConfig) IsOurProto(protoFile string) bool {
@@ -150,33 +161,36 @@ type XDSResource struct {
 	Filename string // the proto file where this resource is contained
 }
 
-func LoadProjectConfig(path string) (ProjectConfig, error) {
+func LoadProjectConfig(path string) (SoloKitProject, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		return ProjectConfig{}, err
+		return SoloKitProject{}, err
 	}
-	var pc ProjectConfig
-	err = json.Unmarshal(b, &pc)
+	var skp SoloKitProject
+	err = json.Unmarshal(b, &skp)
 	if err != nil {
-		return ProjectConfig{}, err
+		return SoloKitProject{}, err
 	}
-	pc.ProjectFile = path
-	if pc.GoPackage == "" {
-		goPkg, err := detectGoPackageForProject(path)
-		if err != nil {
-			return ProjectConfig{}, err
+
+	skp.ProjectFile = path
+	for _, vc := range skp.VersionConfigs {
+		if vc.GoPackage == "" {
+			goPkg, err := detectGoPackageForProject(filepath.Dir(skp.ProjectFile) + "/" + vc.Version)
+			if err != nil {
+				return SoloKitProject{}, err
+			}
+			vc.GoPackage = goPkg
 		}
-		pc.GoPackage = goPkg
 	}
-	return pc, err
+
+	return skp, err
 }
 
 var goPackageStatementRegex = regexp.MustCompile(`option go_package.*=.*"(.*)";`)
 
 // Returns the value of the 'go_package' option of the first .proto file found in the same directory as projectFile
-func detectGoPackageForProject(projectFile string) (string, error) {
+func detectGoPackageForProject(projectDir string) (string, error) {
 	var goPkg string
-	projectDir := filepath.Dir(projectFile)
 	if err := filepath.Walk(projectDir, func(protoFile string, info os.FileInfo, err error) error {
 		// already set
 		if goPkg != "" {
@@ -210,7 +224,7 @@ func detectGoPackageForProject(projectFile string) (string, error) {
 		return "", err
 	}
 	if goPkg == "" {
-		return "", errors.Errorf("no go_package statement found in root dir of project %v", projectFile)
+		return "", errors.Errorf("no go_package statement found in root dir of project %v", projectDir)
 	}
 	return goPkg, nil
 }

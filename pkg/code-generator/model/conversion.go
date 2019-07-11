@@ -6,8 +6,6 @@ import (
 	"os"
 )
 
-const ConversionConfigFilename = "solo-kit-conversion.json"
-
 // SOLO-KIT Descriptors from which code can be generated
 
 type ConversionConfig struct {

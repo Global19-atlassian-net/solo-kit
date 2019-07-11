@@ -56,7 +56,7 @@ func parseRequest(projectConfig *model.ProjectConfig, allProjectConfigs []*model
 
 	project := &model.Project{
 		ProjectConfig: *projectConfig,
-		ProtoPackage:  projectConfig.Name,
+		ProtoPackage:  projectConfig.SoloKitProject.Name,
 		Request:       req,
 	}
 	resources, resourceGroups, err := getResources(project, allProjectConfigs, messages)

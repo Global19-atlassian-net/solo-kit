@@ -149,10 +149,10 @@ func generateFilesForProject(project *model.Project) (code_generator.Files, erro
 	} {
 		content, err := generateProjectFile(project, tmpl)
 		if err != nil {
-			return nil, errors.Wrapf(err, "internal error: processing template '%v' for project %v failed", tmpl.ParseName, project.ProjectConfig.Name)
+			return nil, errors.Wrapf(err, "internal error: processing template '%v' for project %v failed", tmpl.ParseName, project.ProjectConfig.SoloKitProject.Name)
 		}
 		v = append(v, code_generator.File{
-			Filename: strcase.ToSnake(project.ProjectConfig.Name) + suffix,
+			Filename: strcase.ToSnake(project.ProjectConfig.SoloKitProject.Name) + suffix,
 			Content:  content,
 		})
 	}

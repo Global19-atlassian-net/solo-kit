@@ -315,7 +315,7 @@ func linkForResource(project *model.Project, docsOptions *options.DocsOptions) f
 			}
 		}
 		return "", errors.Errorf("internal error: could not find file for resource %v in project %v",
-			resource.Filename, project.ProjectConfig.Name)
+			resource.Filename, project.ProjectConfig.SoloKitProject.Name)
 	}
 }
 
@@ -331,7 +331,7 @@ func resourceForMessage(project *model.Project) func(msg *protokit.Descriptor) (
 		}
 		return nil, nil
 		return nil, errors.Errorf("internal error: could not find file for resource for msg %v in project %v",
-			msg.GetName(), project.ProjectConfig.Name)
+			msg.GetName(), project.ProjectConfig.SoloKitProject.Name)
 	}
 }
 

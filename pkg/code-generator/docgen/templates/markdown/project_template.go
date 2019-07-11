@@ -12,9 +12,9 @@ import (
 func ProjectDocsRootTemplate(project *model.Project, docsOptions *options.DocsOptions) *template.Template {
 	str := `
 
-### API Reference for {{ .ProjectConfig.Title}}
+### API Reference for {{ .ProjectConfig.SoloKitProject.Title}}
 
-API Version: ` + "`{{ .ProjectConfig.Name }}.{{ .ProjectConfig.Version }}`" + `
+API Version: ` + "`{{ .ProjectConfig.SoloKitProject.Name }}.{{ .ProjectConfig.Version }}`" + `
 
 {{ .ProjectConfig.Description }}
 
