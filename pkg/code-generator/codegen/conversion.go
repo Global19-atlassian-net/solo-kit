@@ -80,6 +80,10 @@ func getConversionsFromResourceProjects(resNameToProjects map[string][]*model.Pr
 		}
 		conversions = append(conversions, conversion)
 	}
+
+	// Sort conversions by name so reordering diffs aren't introduced to the conversion files
+	sort.SliceStable(conversions, func(i, j int) bool { return conversions[i].Name < conversions[j].Name })
+
 	return conversions
 }
 
