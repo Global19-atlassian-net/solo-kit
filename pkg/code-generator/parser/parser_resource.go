@@ -34,7 +34,7 @@ type ProtoMessageWrapper struct {
 	Message   *protokit.Descriptor
 }
 
-func getResource(resources []*model.Resource, project model.ProjectConfig, cfg model.ResourceConfig) (*model.Resource, error) {
+func getResource(resources []*model.Resource, project model.VersionConfig, cfg model.ResourceConfig) (*model.Resource, error) {
 	matches := func(res *model.Resource) bool {
 		if res.Name == cfg.ResourceName &&
 			(res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage) {
@@ -69,7 +69,7 @@ func getResource(resources []*model.Resource, project model.ProjectConfig, cfg m
 	return nil, errors.Errorf("found %v resources found which match %v, try specifying a version", len(possibleResources), cfg)
 }
 
-func getResources(project *model.Project, allProjectConfigs []*model.ProjectConfig, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
+func getResources(project *model.Project, allProjectConfigs []*model.VersionConfig, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
 	var (
 		resources []*model.Resource
 	)

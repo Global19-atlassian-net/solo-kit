@@ -12,13 +12,13 @@ import (
 func ProjectDocsRootTemplate(project *model.Project, docsOptions *options.DocsOptions) *template.Template {
 	return template.Must(template.New("pf").Funcs(funcs.TemplateFuncs(project, docsOptions)).Parse(`
 ===========================================
-API Reference for {{ .ProjectConfig.Title}}
+API Reference for {{ .VersionConfig.Title}}
 ===========================================
-.. _{{ .ProjectConfig.Title}}:
+.. _{{ .VersionConfig.Title}}:
 
-API Version: ` + "`{{ .ProjectConfig.Name }}.{{ .ProjectConfig.Version }}`" + `
+API Version: ` + "`{{ .VersionConfig.Name }}.{{ .VersionConfig.Version }}`" + `
 
-{{ .ProjectConfig.Description }}
+{{ .VersionConfig.Description }}
 
 API Resources:
 ~~~~~~~~~~~~~~

@@ -76,7 +76,7 @@ func Generate(opts GenerateOptions) error {
 		return err
 	}
 
-	// Creates a ProjectConfig from each of the 'solo-kit.json' files
+	// Creates a VersionConfig from each of the 'solo-kit.json' files
 	// found in the directory tree rooted at 'absoluteRoot'.
 	soloKitProjects, err := collectProjectsFromRoot(absoluteRoot, skipDirs)
 	if err != nil {
@@ -294,8 +294,8 @@ func gopathSrc() string {
 	return filepath.Join(os.Getenv("GOPATH"), "src")
 }
 
-func collectProjectsFromRoot(root string, skipDirs []string) ([]*model.SoloKitProject, error) {
-	var soloKitProjects []*model.SoloKitProject
+func collectProjectsFromRoot(root string, skipDirs []string) ([]*model.ApiGroup, error) {
+	var soloKitProjects []*model.ApiGroup
 
 	if err := filepath.Walk(root, func(projectFile string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -581,7 +581,7 @@ func importCustomResources(imports []string) ([]model.CustomResourceConfig, erro
 			return nil, err
 		}
 
-		var soloKitProject model.SoloKitProject
+		var soloKitProject model.ApiGroup
 		err = json.Unmarshal(byt, &soloKitProject)
 		if err != nil {
 			return nil, err

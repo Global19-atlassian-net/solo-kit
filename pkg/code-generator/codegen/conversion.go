@@ -14,7 +14,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func GenerateConversionFiles(soloKitProject *model.SoloKitProject, projects []*model.Project) (code_generator.Files, error) {
+func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.Project) (code_generator.Files, error) {
 	var files code_generator.Files
 
 	sort.SliceStable(projects, func(i, j int) bool {
@@ -87,7 +87,7 @@ func getConversionsFromResourceProjects(resNameToProjects map[string][]*model.Pr
 	return conversions
 }
 
-func generateFilesForConversionConfig(soloKitProject *model.SoloKitProject) (code_generator.Files, error) {
+func generateFilesForConversionConfig(soloKitProject *model.ApiGroup) (code_generator.Files, error) {
 	var v code_generator.Files
 	for name, tmpl := range map[string]*template.Template{
 		"resource_converter.sk.go":   templates.ConverterTemplate,
@@ -123,7 +123,7 @@ func generateFilesForConversionConfig(soloKitProject *model.SoloKitProject) (cod
 	return v, nil
 }
 
-func generateConversionFile(soloKitProject *model.SoloKitProject, tmpl *template.Template) (string, error) {
+func generateConversionFile(soloKitProject *model.ApiGroup, tmpl *template.Template) (string, error) {
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, soloKitProject); err != nil {
 		return "", err

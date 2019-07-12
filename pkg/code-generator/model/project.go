@@ -19,21 +19,29 @@ const ProjectConfigFilename = "solo-kit.json"
 // SOLO-KIT Descriptors from which code can be generated
 
 type SoloKitProject struct {
-	Title          string           `json:"title"`
-	Description    string           `json:"description"`
-	Name           string           `json:"name"`
-	DocsDir        string           `json:"docs_dir"`
-	VersionConfigs []*ProjectConfig `json:"version_configs"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
+	Name        string      `json:"name"`
+	DocsDir     string      `json:"docs_dir"`
+	ApiGroups   []*ApiGroup `json:"api_groups"`
 
-	ConversionGoPackage string `json:"conversion_go_package"`
+	// set by load
+	ProjectFile string
+}
+
+type ApiGroup struct {
+	Name                string           `json:"name"`
+	VersionConfigs      []*VersionConfig `json:"version_configs"`
+	ConversionGoPackage string           `json:"conversion_go_package"`
 
 	// set by load
 	ProjectFile              string
+	SoloKitProject           SoloKitProject
 	Conversions              []*Conversion
 	ConversionGoPackageShort string
 }
 
-type ProjectConfig struct {
+type VersionConfig struct {
 	Version        string                      `json:"version"`
 	SchemaLink     string                      `json:"schema_link"`
 	ResourceGroups map[string][]ResourceConfig `json:"resource_groups"`
@@ -51,11 +59,11 @@ type ProjectConfig struct {
 	GoPackage string `json:"go_package"`
 
 	// set by load
-	SoloKitProject SoloKitProject
-	ProjectProtos  []string
+	ApiGroup      ApiGroup
+	ProjectProtos []string
 }
 
-func (p ProjectConfig) IsOurProto(protoFile string) bool {
+func (p VersionConfig) IsOurProto(protoFile string) bool {
 	for _, file := range p.ProjectProtos {
 		if protoFile == file {
 			return true
@@ -86,7 +94,7 @@ type CustomResourceConfig struct {
 }
 
 type Project struct {
-	ProjectConfig  ProjectConfig
+	ProjectConfig  VersionConfig
 	ProtoPackage   string
 	Resources      []*Resource
 	ResourceGroups []*ResourceGroup
@@ -161,15 +169,15 @@ type XDSResource struct {
 	Filename string // the proto file where this resource is contained
 }
 
-func LoadProjectConfig(path string) (SoloKitProject, error) {
+func LoadProjectConfig(path string) (ApiGroup, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		return SoloKitProject{}, err
+		return ApiGroup{}, err
 	}
-	var skp SoloKitProject
+	var skp ApiGroup
 	err = json.Unmarshal(b, &skp)
 	if err != nil {
-		return SoloKitProject{}, err
+		return ApiGroup{}, err
 	}
 
 	skp.ProjectFile = path
@@ -177,7 +185,7 @@ func LoadProjectConfig(path string) (SoloKitProject, error) {
 		if vc.GoPackage == "" {
 			goPkg, err := detectGoPackageForProject(filepath.Dir(skp.ProjectFile) + "/" + vc.Version)
 			if err != nil {
-				return SoloKitProject{}, err
+				return ApiGroup{}, err
 			}
 			vc.GoPackage = goPkg
 		}
