@@ -135,7 +135,7 @@ func Generate(opts GenerateOptions) error {
 
 			for _, desc := range descriptors {
 				if filepath.Dir(desc.ProtoFilePath) == filepath.Dir(skp.ProjectFile)+"/"+vc.Version {
-					vc.ProjectProtos = append(vc.ProjectProtos, desc.GetName())
+					vc.VersionProtos = append(vc.VersionProtos, desc.GetName())
 				}
 				protoDescriptors = append(protoDescriptors, desc.FileDescriptorProto)
 			}

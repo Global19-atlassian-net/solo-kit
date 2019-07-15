@@ -21,8 +21,6 @@ const ProjectConfigFilename = "solo-kit.json"
 type SoloKitProject struct {
 	Title       string      `json:"title"`
 	Description string      `json:"description"`
-	Name        string      `json:"name"`
-	DocsDir     string      `json:"docs_dir"`
 	ApiGroups   []*ApiGroup `json:"api_groups"`
 
 	// set by load
@@ -30,41 +28,42 @@ type SoloKitProject struct {
 }
 
 type ApiGroup struct {
-	Name                string           `json:"name"`
-	VersionConfigs      []*VersionConfig `json:"version_configs"`
-	ConversionGoPackage string           `json:"conversion_go_package"`
+	Name                   string           `json:"name"`
+	DocsDir                string           `json:"docs_dir"`
+	VersionConfigs         []*VersionConfig `json:"version_configs"`
+	ConversionGoPackage    string           `json:"conversion_go_package"`
+	ResourceGroupGoPackage string           `json:"resource_group_go_package"`
+
+	// if set, this group will override the proto package typically used
+	// as the api group for the crd
+	CrdGroupOverride string `json:"crd_group_override"`
+	// define custom resources here
+	CustomResources []CustomResourceConfig `json:"custom_resources"`
 
 	// set by load
-	ProjectFile              string
-	SoloKitProject           SoloKitProject
-	Conversions              []*Conversion
-	ConversionGoPackageShort string
+	SoloKitProject              SoloKitProject
+	Conversions                 []*Conversion
+	ConversionGoPackageShort    string
+	ResourceGroupGoPackageShort string
 }
 
 type VersionConfig struct {
 	Version        string                      `json:"version"`
-	SchemaLink     string                      `json:"schema_link"`
 	ResourceGroups map[string][]ResourceConfig `json:"resource_groups"`
-	// if set, this group will override the proto package typically used
-	// as the api group for the crd
-	CrdGroupOverride string `json:"crd_group_override"`
 
 	// imported solokit projects
 	Imports []string `json:"imports"`
-
-	// define custom resources here
-	CustomResources []CustomResourceConfig `json:"custom_resources"`
 
 	// set by load if not specified
 	GoPackage string `json:"go_package"`
 
 	// set by load
 	ApiGroup      ApiGroup
-	ProjectProtos []string
+	VersionProtos []string
 }
 
 func (p VersionConfig) IsOurProto(protoFile string) bool {
-	for _, file := range p.ProjectProtos {
+	for _, file := range p.VersionProtos {
 		if protoFile == file {
 			return true
 		}
