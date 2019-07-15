@@ -3,6 +3,7 @@
   "api_groups": [
     {
       "name": "kubernetes.solo.io",
+      "resource_group_go_package": "github.com/solo-io/solo-kit/api/external/kubernetes/group",
       "custom_resources": [
         {
           "package": "github.com/solo-io/solo-kit/api/external/kubernetes/pod",

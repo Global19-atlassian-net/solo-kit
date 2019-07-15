@@ -74,7 +74,6 @@ func (p VersionConfig) IsOurProto(protoFile string) bool {
 type ResourceConfig struct {
 	ResourceName    string `json:"name"`
 	ResourcePackage string `json:"package"` // resource package doubles as the proto package or the go import package
-	ResourceVersion string `json:"version"`
 }
 
 // Create a Solo-Kit backed resource from
@@ -152,7 +151,7 @@ type ResourceGroup struct {
 	Name      string // eg. api.gloo.solo.io
 	GoName    string // will be Api
 	Imports   string // if this resource group contains any imports from other projects
-	Project   *Version
+	ApiGroup  *ApiGroup
 	Resources []*Resource
 }
 
@@ -181,6 +180,8 @@ func LoadProjectConfig(path string) (SoloKitProject, error) {
 
 	skp.ProjectFile = path
 	for _, ag := range skp.ApiGroups {
+		goPackageSegments := strings.Split(ag.ResourceGroupGoPackage, "/")
+		ag.ResourceGroupGoPackageShort = goPackageSegments[len(goPackageSegments)-1]
 		for _, vc := range ag.VersionConfigs {
 			if vc.GoPackage == "" {
 				goPkg, err := detectGoPackageForVersion(filepath.Dir(skp.ProjectFile) + "/" + vc.Version)

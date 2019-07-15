@@ -2,7 +2,7 @@
 
 // +build solokit
 
-package v1
+package group
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
-var _ = Describe("V1Emitter", func() {
+var _ = Describe("GroupEmitter", func() {
 	if os.Getenv("RUN_KUBE_TESTS") != "1" {
 		log.Printf("This test creates kubernetes resources and is disabled by default. To enable, set RUN_KUBE_TESTS=1 in your env.")
 		return

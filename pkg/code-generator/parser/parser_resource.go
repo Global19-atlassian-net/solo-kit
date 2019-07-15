@@ -36,14 +36,8 @@ type ProtoMessageWrapper struct {
 
 func getResource(resources []*model.Resource, versionConfig model.VersionConfig, cfg model.ResourceConfig) (*model.Resource, error) {
 	matches := func(res *model.Resource) bool {
-		if res.Name == cfg.ResourceName &&
-			(res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage) {
-			if cfg.ResourceVersion == "" {
-				return true
-			}
-			return cfg.ResourceVersion == res.Version
-		}
-		return false
+		return res.Name == cfg.ResourceName &&
+			(res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage)
 	}
 
 	// collect all resources that match on package and name
@@ -66,7 +60,7 @@ func getResource(resources []*model.Resource, versionConfig model.VersionConfig,
 			return res, nil
 		}
 	}
-	return nil, errors.Errorf("found %v resources found which match %v, try specifying a version", len(possibleResources), cfg)
+	return possibleResources[0], nil
 }
 
 func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
@@ -92,22 +86,25 @@ func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []P
 		resources = append(resources, resource)
 	}
 
-	for _, custom := range version.VersionConfig.CustomResources {
-		impPrefix := strings.Replace(custom.Package, "/", "_", -1)
-		impPrefix = strings.Replace(impPrefix, ".", "_", -1)
-		impPrefix = strings.Replace(impPrefix, "-", "_", -1)
-		resources = append(resources, &model.Resource{
-			Name:               custom.Type,
-			ShortName:          custom.ShortName,
-			PluralName:         custom.PluralName,
-			GoPackage:          custom.Package,
-			ClusterScoped:      custom.ClusterScoped,
-			CustomImportPrefix: impPrefix,
-			SkipDocsGen:        true,
-			Project:            version,
-			IsCustom:           true,
-			CustomResource:     custom,
-		})
+	for _, vc := range apiGroup.VersionConfigs {
+		for _, custom := range vc.CustomResources {
+			impPrefix := strings.Replace(custom.Package, "/", "_", -1)
+			impPrefix = strings.Replace(impPrefix, ".", "_", -1)
+			impPrefix = strings.Replace(impPrefix, "-", "_", -1)
+			resources = append(resources, &model.Resource{
+				Name:               custom.Type,
+				ShortName:          custom.ShortName,
+				PluralName:         custom.PluralName,
+				GoPackage:          custom.Package,
+				ClusterScoped:      custom.ClusterScoped,
+				CustomImportPrefix: impPrefix,
+				SkipDocsGen:        true,
+				// TODO joekelley this is bad
+				Project:        version,
+				IsCustom:       true,
+				CustomResource: custom,
+			})
+		}
 	}
 
 	var (
@@ -140,7 +137,7 @@ func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []P
 		rg := &model.ResourceGroup{
 			Name:      groupName,
 			GoName:    goName(groupName),
-			Project:   version,
+			ApiGroup:  version.VersionConfig.ApiGroup,
 			Resources: resourcesForGroup,
 		}
 		for _, res := range resourcesForGroup {
@@ -150,7 +147,7 @@ func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []P
 		imports := make(map[string]string)
 		for _, res := range rg.Resources {
 			// only generate files for the resources in our group, otherwise we import
-			if res.GoPackage != rg.Project.VersionConfig.GoPackage {
+			if res.GoPackage != rg.ApiGroup.ResourceGroupGoPackage {
 				// add import
 				imports[strings.TrimSuffix(res.ImportPrefix, ".")] = res.GoPackage
 			}

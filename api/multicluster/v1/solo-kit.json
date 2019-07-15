@@ -3,6 +3,7 @@
   "api_groups": [
     {
       "name": "multicluster.solo.io",
+      "resource_group_go_package": "github.com/solo-io/solo-kit/pkg/multicluster/group",
       "resource_groups": {
         "kubeconfigs.multicluster.solo.io": [
           {
