@@ -10,15 +10,15 @@ import (
 )
 
 func ProjectDocsRootTemplate(project *model.Version, docsOptions *options.DocsOptions) *template.Template {
-	return template.Must(template.New("pf").Funcs(funcs.TemplateFuncs(project, docsOptions)).Parse(`
+	return template.Must(template.New("restructured_project").Funcs(funcs.TemplateFuncs(project, docsOptions)).Parse(`
 ===========================================
-API Reference for {{ .VersionConfig.Title}}
+API Reference for {{ .VersionConfig.ApiGroup.SoloKitProject.Title }}
 ===========================================
-.. _{{ .VersionConfig.Title}}:
+.. _{{ .VersionConfig.ApiGroup.SoloKitProject.Title }}:
 
-API Version: ` + "`{{ .VersionConfig.Name }}.{{ .VersionConfig.Version }}`" + `
+API Version: ` + "`{{ .VersionConfig.ApiGroup.Name }}.{{ .VersionConfig.Version }}`" + `
 
-{{ .VersionConfig.Description }}
+{{ .VersionConfig.ApiGroup.SoloKitProject.Description }}
 
 API Resources:
 ~~~~~~~~~~~~~~

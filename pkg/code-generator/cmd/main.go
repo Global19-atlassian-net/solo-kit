@@ -150,7 +150,7 @@ func Generate(opts GenerateOptions) error {
 		for _, ag := range skp.ApiGroups {
 			ag.SoloKitProject = skp
 			// Store all projects for conversion generation.
-			var allProjects []*model.Version
+			var apiGroupVersions []*model.Version
 			for _, vc := range ag.VersionConfigs {
 				vc.ApiGroup = ag
 
@@ -158,19 +158,25 @@ func Generate(opts GenerateOptions) error {
 				// - is contained in the FileDescriptor and
 				// - is a solo kit resource (i.e. it has a field named 'metadata')
 
-				project, err := parser.ProcessDescriptors(vc, ag, protoDescriptors)
+				version, err := parser.ProcessDescriptors(vc, ag, protoDescriptors)
 				if err != nil {
 					return err
 				}
-				allProjects = append(allProjects, project)
+				apiGroupVersions = append(apiGroupVersions, version)
 
-				code, err := codegen.GenerateProjectFiles(project, true, opts.SkipGeneratedTests)
+				code, err := codegen.GenerateProjectFiles(version, true, opts.SkipGeneratedTests)
 				if err != nil {
 					return err
 				}
 
+				outDir := filepath.Join(gopathSrc(), version.VersionConfig.GoPackage)
+				if err := writeCodeFiles(code, outDir); err != nil {
+					return err
+				}
+
+				genDocs = &DocsOptions{}
 				if ag.DocsDir != "" && (genDocs != nil) {
-					docs, err := docgen.GenerateFiles(project, genDocs)
+					docs, err := docgen.GenerateFiles(version, genDocs)
 					if err != nil {
 						return err
 					}
@@ -186,11 +192,6 @@ func Generate(opts GenerateOptions) error {
 					}
 				}
 
-				outDir := filepath.Join(gopathSrc(), project.VersionConfig.GoPackage)
-				if err := writeCodeFiles(code, outDir); err != nil {
-					return err
-				}
-
 				// Generate mocks
 				// need to run after to make sure all resources have already been written
 				// Set this env var during tests so that mocks are not generated
@@ -203,7 +204,7 @@ func Generate(opts GenerateOptions) error {
 
 			if ag.ResourceGroupGoPackage != "" {
 				var allResources []*model.Resource
-				for _, v := range allProjects {
+				for _, v := range apiGroupVersions {
 					allResources = append(allResources, v.Resources...)
 				}
 				ag.ResourceGroupsFoo, err = parser.GetResourceGroups(ag, allResources)
@@ -216,7 +217,6 @@ func Generate(opts GenerateOptions) error {
 					return err
 				}
 
-				// TODO joekelley DOCS
 				outDir := filepath.Join(gopathSrc(), ag.ResourceGroupGoPackage)
 				if err := writeCodeFiles(code, outDir); err != nil {
 					return err
@@ -230,14 +230,13 @@ func Generate(opts GenerateOptions) error {
 						return err
 					}
 				}
-
 			}
 
 			if ag.ConversionGoPackage != "" {
 				goPackageSegments := strings.Split(ag.ConversionGoPackage, "/")
 				ag.ConversionGoPackageShort = goPackageSegments[len(goPackageSegments)-1]
 
-				code, err := codegen.GenerateConversionFiles(ag, allProjects)
+				code, err := codegen.GenerateConversionFiles(ag, apiGroupVersions)
 				if err != nil {
 					return err
 				}

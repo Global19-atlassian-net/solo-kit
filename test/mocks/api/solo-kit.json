@@ -4,7 +4,7 @@
   "api_groups": [
     {
       "name": "testing.solo.io",
-      "docs_dir": "../doc",
+      "docs_dir": "test/mocks/docs",
       "conversion_go_package": "github.com/solo-io/solo-kit/test/mocks/conversion",
       "resource_group_go_package": "github.com/solo-io/solo-kit/test/mocks/group",
       "imports": [
