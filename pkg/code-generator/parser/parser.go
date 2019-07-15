@@ -13,7 +13,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func ProcessDescriptors(projectConfig *model.VersionConfig, apiGroup *model.ApiGroup, descriptors []*descriptor.FileDescriptorProto) (*model.Version, error) {
+func ProcessDescriptors(versionConfig *model.VersionConfig, apiGroup *model.ApiGroup, descriptors []*descriptor.FileDescriptorProto) (*model.Version, error) {
 	req := &plugin_go.CodeGeneratorRequest{}
 	for _, file := range descriptors {
 		var added bool
@@ -28,11 +28,11 @@ func ProcessDescriptors(projectConfig *model.VersionConfig, apiGroup *model.ApiG
 		req.FileToGenerate = append(req.FileToGenerate, file.GetName())
 		req.ProtoFile = append(req.ProtoFile, file)
 	}
-	return parseRequest(projectConfig, apiGroup, req)
+	return parseRequest(versionConfig, apiGroup, req)
 }
 
-func parseRequest(projectConfig *model.VersionConfig, apiGroup *model.ApiGroup, req *plugin_go.CodeGeneratorRequest) (*model.Version, error) {
-	log.Printf("project config: %v", projectConfig)
+func parseRequest(versionConfig *model.VersionConfig, apiGroup *model.ApiGroup, req *plugin_go.CodeGeneratorRequest) (*model.Version, error) {
+	log.Printf("version config: %v", versionConfig)
 
 	descriptors := protokit.ParseCodeGenRequest(req)
 	var messages []ProtoMessageWrapper
@@ -54,26 +54,26 @@ func parseRequest(projectConfig *model.VersionConfig, apiGroup *model.ApiGroup, 
 		services = append(services, file.GetServices()...)
 	}
 
-	project := &model.Version{
-		VersionConfig: *projectConfig,
-		ProtoPackage:  projectConfig.ApiGroup.Name,
+	version := &model.Version{
+		VersionConfig: *versionConfig,
+		ProtoPackage:  versionConfig.ApiGroup.Name,
 		Request:       req,
 	}
-	resources, resourceGroups, err := getResources(project, apiGroup, messages)
+	resources, resourceGroups, err := getResources(version, apiGroup, messages)
 	if err != nil {
 		return nil, err
 	}
 
-	xdsResources, err := getXdsResources(project, messages, services)
+	xdsResources, err := getXdsResources(version, messages, services)
 	if err != nil {
 		return nil, err
 	}
 
-	project.Resources = resources
-	project.ResourceGroups = resourceGroups
-	project.XDSResources = xdsResources
+	version.Resources = resources
+	version.ResourceGroups = resourceGroups
+	version.XDSResources = xdsResources
 
-	return project, nil
+	return version, nil
 }
 
 func goName(n string) string {

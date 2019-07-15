@@ -43,8 +43,10 @@ type ApiGroup struct {
 	Imports []string `json:"imports"`
 
 	// set by load
-	SoloKitProject              *SoloKitProject
-	Conversions                 []*Conversion
+	SoloKitProject *SoloKitProject
+	Conversions    []*Conversion
+	// TODO joekelley improve name
+	ResourceGroupsFoo           []*ResourceGroup
 	ConversionGoPackageShort    string
 	ResourceGroupGoPackageShort string
 }
@@ -92,11 +94,10 @@ type CustomResourceConfig struct {
 }
 
 type Version struct {
-	VersionConfig  VersionConfig
-	ProtoPackage   string
-	Resources      []*Resource
-	ResourceGroups []*ResourceGroup
-	XDSResources   []*XDSResource
+	VersionConfig VersionConfig
+	ProtoPackage  string
+	Resources     []*Resource
+	XDSResources  []*XDSResource
 
 	Request *plugin_go.CodeGeneratorRequest
 }
