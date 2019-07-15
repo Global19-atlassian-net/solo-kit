@@ -51,6 +51,15 @@ type ApiGroup struct {
 	ResourceGroupGoPackageShort string
 }
 
+func (a ApiGroup) IsOurProto(protoFile string) bool {
+	for _, vc := range a.VersionConfigs {
+		if vc.IsOurProto(protoFile) {
+			return true
+		}
+	}
+	return false
+}
+
 type VersionConfig struct {
 	Version string `json:"version"`
 

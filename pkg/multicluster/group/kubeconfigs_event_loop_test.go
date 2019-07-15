@@ -2,7 +2,7 @@
 
 // +build solokit
 
-package v1alpha1
+package group
 
 import (
 	"context"
@@ -16,46 +16,46 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/memory"
 )
 
-var _ = Describe("TestingEventLoop", func() {
+var _ = Describe("KubeconfigsEventLoop", func() {
 	var (
 		namespace string
-		emitter   TestingEmitter
+		emitter   KubeconfigsEmitter
 		err       error
 	)
 
 	BeforeEach(func() {
 
-		mockResourceClientFactory := &factory.MemoryResourceClientFactory{
+		kubeConfigClientFactory := &factory.MemoryResourceClientFactory{
 			Cache: memory.NewInMemoryResourceCache(),
 		}
-		mockResourceClient, err := NewMockResourceClient(mockResourceClientFactory)
+		kubeConfigClient, err := NewKubeConfigClient(kubeConfigClientFactory)
 		Expect(err).NotTo(HaveOccurred())
 
-		emitter = NewTestingEmitter(mockResourceClient)
+		emitter = NewKubeconfigsEmitter(kubeConfigClient)
 	})
 	It("runs sync function on a new snapshot", func() {
-		_, err = emitter.MockResource().Write(NewMockResource(namespace, "jerry"), clients.WriteOpts{})
+		_, err = emitter.KubeConfig().Write(NewKubeConfig(namespace, "jerry"), clients.WriteOpts{})
 		Expect(err).NotTo(HaveOccurred())
-		sync := &mockTestingSyncer{}
-		el := NewTestingEventLoop(emitter, sync)
+		sync := &mockKubeconfigsSyncer{}
+		el := NewKubeconfigsEventLoop(emitter, sync)
 		_, err := el.Run([]string{namespace}, clients.WatchOpts{})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(sync.Synced, 5*time.Second).Should(BeTrue())
 	})
 })
 
-type mockTestingSyncer struct {
+type mockKubeconfigsSyncer struct {
 	synced bool
 	mutex  sync.Mutex
 }
 
-func (s *mockTestingSyncer) Synced() bool {
+func (s *mockKubeconfigsSyncer) Synced() bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.synced
 }
 
-func (s *mockTestingSyncer) Sync(ctx context.Context, snap *TestingSnapshot) error {
+func (s *mockKubeconfigsSyncer) Sync(ctx context.Context, snap *KubeconfigsSnapshot) error {
 	s.mutex.Lock()
 	s.synced = true
 	s.mutex.Unlock()

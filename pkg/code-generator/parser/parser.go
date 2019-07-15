@@ -59,7 +59,7 @@ func parseRequest(versionConfig *model.VersionConfig, apiGroup *model.ApiGroup, 
 		ProtoPackage:  versionConfig.ApiGroup.Name,
 		Request:       req,
 	}
-	resources, resourceGroups, err := getResources(version, apiGroup, messages)
+	resources, err := getResources(version, apiGroup, messages)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,6 @@ func parseRequest(versionConfig *model.VersionConfig, apiGroup *model.ApiGroup, 
 	}
 
 	version.Resources = resources
-	version.ResourceGroups = resourceGroups
 	version.XDSResources = xdsResources
 
 	return version, nil

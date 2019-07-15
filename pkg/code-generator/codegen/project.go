@@ -45,17 +45,6 @@ func GenerateProjectFiles(project *model.Version, skipOutOfPackageFiles, skipGen
 		files = append(files, fs...)
 	}
 
-	for _, grp := range project.ResourceGroups {
-		if skipOutOfPackageFiles && !(strings.HasSuffix(grp.Name, "."+project.ProtoPackage) || grp.Name == project.ProtoPackage) {
-			continue
-		}
-		fs, err := generateFilesForResourceGroup(grp)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, fs...)
-	}
-
 	for _, res := range project.XDSResources {
 		if skipOutOfPackageFiles && !project.VersionConfig.IsOurProto(res.Filename) {
 			continue
@@ -66,6 +55,7 @@ func GenerateProjectFiles(project *model.Version, skipOutOfPackageFiles, skipGen
 		}
 		files = append(files, fs...)
 	}
+
 	for i := range files {
 		files[i].Content = fileHeader + files[i].Content
 	}
@@ -119,29 +109,6 @@ func generateFilesForResource(resource *model.Resource) (code_generator.Files, e
 	return v, nil
 }
 
-func generateFilesForResourceGroup(rg *model.ResourceGroup) (code_generator.Files, error) {
-	var v code_generator.Files
-	for suffix, tmpl := range map[string]*template.Template{
-		"_snapshot.sk.go":                templates.ResourceGroupSnapshotTemplate,
-		"_snapshot_simple_emitter.sk.go": templates.SimpleEmitterTemplate,
-		"_snapshot_emitter.sk.go":        templates.ResourceGroupEmitterTemplate,
-		"_snapshot_emitter_test.go":      templates.ResourceGroupEmitterTestTemplate,
-		"_event_loop.sk.go":              templates.ResourceGroupEventLoopTemplate,
-		"_simple_event_loop.sk.go":       templates.SimpleEventLoopTemplate,
-		"_event_loop_test.go":            templates.ResourceGroupEventLoopTestTemplate,
-	} {
-		content, err := generateResourceGroupFile(rg, tmpl)
-		if err != nil {
-			return nil, errors.Wrapf(err, "internal error: processing %template '%v' for resource group %v failed", tmpl.ParseName, rg.Name)
-		}
-		v = append(v, code_generator.File{
-			Filename: strcase.ToSnake(rg.GoName) + suffix,
-			Content:  content,
-		})
-	}
-	return v, nil
-}
-
 func generateFilesForProject(project *model.Version) (code_generator.Files, error) {
 	var v code_generator.Files
 	for suffix, tmpl := range map[string]*template.Template{
@@ -170,14 +137,6 @@ func generateXdsResourceFile(resource *model.XDSResource, tmpl *template.Templat
 func generateResourceFile(resource *model.Resource, tmpl *template.Template) (string, error) {
 	buf := &bytes.Buffer{}
 	if err := tmpl.Execute(buf, resource); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-func generateResourceGroupFile(rg *model.ResourceGroup, tmpl *template.Template) (string, error) {
-	buf := &bytes.Buffer{}
-	if err := tmpl.Execute(buf, rg); err != nil {
 		return "", err
 	}
 	return buf.String(), nil

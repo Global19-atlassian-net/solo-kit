@@ -146,11 +146,11 @@ func Generate(opts GenerateOptions) error {
 		}
 	}
 
-	// Store all projects for conversion generation.
-	allProjects := make([]*model.Version, 0, len(soloKitProjects))
 	for _, skp := range soloKitProjects {
 		for _, ag := range skp.ApiGroups {
 			ag.SoloKitProject = skp
+			// Store all projects for conversion generation.
+			var allProjects []*model.Version
 			for _, vc := range ag.VersionConfigs {
 				vc.ApiGroup = ag
 
@@ -187,22 +187,8 @@ func Generate(opts GenerateOptions) error {
 				}
 
 				outDir := filepath.Join(gopathSrc(), project.VersionConfig.GoPackage)
-
-				for _, file := range code {
-					path := filepath.Join(outDir, file.Filename)
-					if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-						return err
-					}
-					if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-						return err
-					}
-					if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
-						return errors.Wrapf(err, "gofmt failed: %s", out)
-					}
-
-					if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
-						return errors.Wrapf(err, "goimports failed: %s", out)
-					}
+				if err := writeCodeFiles(code, outDir); err != nil {
+					return err
 				}
 
 				// Generate mocks
@@ -215,7 +201,38 @@ func Generate(opts GenerateOptions) error {
 				}
 			}
 
-			// TODO joekelley know when to skip this (no go package?)
+			if ag.ResourceGroupGoPackage != "" {
+				var allResources []*model.Resource
+				for _, v := range allProjects {
+					allResources = append(allResources, v.Resources...)
+				}
+				ag.ResourceGroupsFoo, err = parser.GetResourceGroups(ag, allResources)
+				if err != nil {
+					return err
+				}
+
+				code, err := codegen.GenerateResourceGroupFiles(ag, true, opts.SkipGeneratedTests)
+				if err != nil {
+					return err
+				}
+
+				// TODO joekelley DOCS
+				outDir := filepath.Join(gopathSrc(), ag.ResourceGroupGoPackage)
+				if err := writeCodeFiles(code, outDir); err != nil {
+					return err
+				}
+
+				// Generate mocks
+				// need to run after to make sure all resources have already been written
+				// Set this env var during tests so that mocks are not generated
+				if !opts.SkipGenMocks {
+					if err := genMocks(code, outDir, absoluteRoot); err != nil {
+						return err
+					}
+				}
+
+			}
+
 			if ag.ConversionGoPackage != "" {
 				goPackageSegments := strings.Split(ag.ConversionGoPackage, "/")
 				ag.ConversionGoPackageShort = goPackageSegments[len(goPackageSegments)-1]
@@ -226,22 +243,8 @@ func Generate(opts GenerateOptions) error {
 				}
 
 				outDir := filepath.Join(gopathSrc(), ag.ConversionGoPackage)
-
-				for _, file := range code {
-					path := filepath.Join(outDir, file.Filename)
-					if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-						return err
-					}
-					if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-						return err
-					}
-					if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
-						return errors.Wrapf(err, "gofmt failed: %s", out)
-					}
-
-					if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
-						return errors.Wrapf(err, "goimports failed: %s", out)
-					}
+				if err := writeCodeFiles(code, outDir); err != nil {
+					return err
 				}
 			}
 		}
@@ -607,4 +610,24 @@ func importCustomResources(imports []string) ([]model.CustomResourceConfig, erro
 	}
 
 	return results, nil
+}
+
+func writeCodeFiles(code code_generator.Files, outDir string) error {
+	for _, file := range code {
+		path := filepath.Join(outDir, file.Filename)
+		if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
+			return err
+		}
+		if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
+			return errors.Wrapf(err, "gofmt failed: %s", out)
+		}
+
+		if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
+			return errors.Wrapf(err, "goimports failed: %s", out)
+		}
+	}
+	return nil
 }

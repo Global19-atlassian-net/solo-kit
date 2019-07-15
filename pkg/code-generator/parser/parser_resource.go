@@ -34,10 +34,9 @@ type ProtoMessageWrapper struct {
 	Message   *protokit.Descriptor
 }
 
-func getResource(resources []*model.Resource, versionConfig model.VersionConfig, cfg model.ResourceConfig) (*model.Resource, error) {
+func getResource(resources []*model.Resource, cfg model.ResourceConfig) (*model.Resource, error) {
 	matches := func(res *model.Resource) bool {
-		return res.Name == cfg.ResourceName &&
-			(res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage)
+		return res.Name == cfg.ResourceName //&& (res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage)
 	}
 
 	// collect all resources that match on package and name
@@ -53,24 +52,18 @@ func getResource(resources []*model.Resource, versionConfig model.VersionConfig,
 	case 0:
 		return nil, errors.Errorf("getting resource: message %v not found", cfg)
 	}
-	// default to using the version matching the project itself
-	// only works for this project's resources
-	for _, res := range possibleResources {
-		if res.GoPackage == versionConfig.GoPackage {
-			return res, nil
-		}
-	}
+
 	return possibleResources[0], nil
 }
 
-func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
+func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []ProtoMessageWrapper) ([]*model.Resource, error) {
 	var (
 		resources []*model.Resource
 	)
 	for _, msg := range messages {
 		resource, err := describeResource(msg)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if resource == nil {
 			// not a solo-kit resource, ignore
@@ -99,28 +92,31 @@ func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []P
 				ClusterScoped:      custom.ClusterScoped,
 				CustomImportPrefix: impPrefix,
 				SkipDocsGen:        true,
-				// TODO joekelley this is bad
-				Project:        version,
-				IsCustom:       true,
-				CustomResource: custom,
+				Project:            version,
+				IsCustom:           true,
+				CustomResource:     custom,
 			})
 		}
 	}
 
+	return resources, nil
+}
+
+func GetResourceGroups(apiGroup *model.ApiGroup, resources []*model.Resource) ([]*model.ResourceGroup, error) {
 	var (
 		resourceGroups []*model.ResourceGroup
 	)
 
-	for groupName, resourcesCfg := range version.VersionConfig.ApiGroup.ResourceGroups {
+	for groupName, resourcesCfg := range apiGroup.ResourceGroups {
 		var resourcesForGroup []*model.Resource
 		for _, resourceCfg := range resourcesCfg {
-			resource, err := getResource(resources, version.VersionConfig, resourceCfg)
+			resource, err := getResource(resources, resourceCfg)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 
 			var importPrefix string
-			if !version.VersionConfig.IsOurProto(resource.Filename) && !resource.IsCustom {
+			if !apiGroup.IsOurProto(resource.Filename) && !resource.IsCustom {
 				importPrefix = resource.ProtoPackage
 			} else if resource.IsCustom && resource.CustomResource.Imported {
 				// If is custom resource from a different version use import prefix
@@ -137,7 +133,7 @@ func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []P
 		rg := &model.ResourceGroup{
 			Name:      groupName,
 			GoName:    goName(groupName),
-			ApiGroup:  version.VersionConfig.ApiGroup,
+			ApiGroup:  apiGroup,
 			Resources: resourcesForGroup,
 		}
 		for _, res := range resourcesForGroup {
@@ -176,7 +172,7 @@ func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []P
 	sort.SliceStable(resourceGroups, func(i, j int) bool {
 		return resourceGroups[i].Name < resourceGroups[j].Name
 	})
-	return resources, resourceGroups, nil
+	return resourceGroups, nil
 }
 
 func describeResource(messageWrapper ProtoMessageWrapper) (*model.Resource, error) {
