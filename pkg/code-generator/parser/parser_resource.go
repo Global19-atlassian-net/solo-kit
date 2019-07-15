@@ -79,24 +79,22 @@ func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []P
 		resources = append(resources, resource)
 	}
 
-	for _, vc := range apiGroup.VersionConfigs {
-		for _, custom := range vc.CustomResources {
-			impPrefix := strings.Replace(custom.Package, "/", "_", -1)
-			impPrefix = strings.Replace(impPrefix, ".", "_", -1)
-			impPrefix = strings.Replace(impPrefix, "-", "_", -1)
-			resources = append(resources, &model.Resource{
-				Name:               custom.Type,
-				ShortName:          custom.ShortName,
-				PluralName:         custom.PluralName,
-				GoPackage:          custom.Package,
-				ClusterScoped:      custom.ClusterScoped,
-				CustomImportPrefix: impPrefix,
-				SkipDocsGen:        true,
-				Project:            version,
-				IsCustom:           true,
-				CustomResource:     custom,
-			})
-		}
+	for _, custom := range version.VersionConfig.CustomResources {
+		impPrefix := strings.Replace(custom.Package, "/", "_", -1)
+		impPrefix = strings.Replace(impPrefix, ".", "_", -1)
+		impPrefix = strings.Replace(impPrefix, "-", "_", -1)
+		resources = append(resources, &model.Resource{
+			Name:               custom.Type,
+			ShortName:          custom.ShortName,
+			PluralName:         custom.PluralName,
+			GoPackage:          custom.Package,
+			ClusterScoped:      custom.ClusterScoped,
+			CustomImportPrefix: impPrefix,
+			SkipDocsGen:        true,
+			Project:            version,
+			IsCustom:           true,
+			CustomResource:     custom,
+		})
 	}
 
 	return resources, nil

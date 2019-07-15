@@ -59,56 +59,6 @@ func (fakeResourceDownConverter) FromV1ToV1Alpha1(src *v1.FakeResource) *v1alpha
 	return &v1alpha1.FakeResource{Metadata: core.Metadata{Name: "v1alpha1"}}
 }
 
-var _ = Describe("MockCustomTypeConverter", func() {
-	BeforeEach(func() {
-		converter = conversion.NewMockCustomTypeConverter(mockCustomTypeUpConverter{}, mockCustomTypeDownConverter{})
-	})
-
-	Describe("Convert", func() {
-		It("works for noop conversions", func() {
-			src := &v1alpha1.MockCustomType{Metadata: core.Metadata{Name: "test"}}
-			dst := &v1alpha1.MockCustomType{}
-			err := converter.Convert(src, dst)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dst.GetMetadata().Name).To(Equal("test"))
-		})
-
-		It("converts all the way up", func() {
-			src := &v1alpha1.MockCustomType{}
-			dst := &v2alpha1.MockCustomType{}
-			err := converter.Convert(src, dst)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dst.GetMetadata().Name).To(Equal("v2alpha1"))
-		})
-
-		It("converts all the way down", func() {
-			src := &v2alpha1.MockCustomType{}
-			dst := &v1alpha1.MockCustomType{}
-			err := converter.Convert(src, dst)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(dst.GetMetadata().Name).To(Equal("v1alpha1"))
-		})
-	})
-})
-
-type mockCustomTypeUpConverter struct{}
-
-func (mockCustomTypeUpConverter) FromV1Alpha1ToV1(src *v1alpha1.MockCustomType) *v1.MockCustomType {
-	return &v1.MockCustomType{Metadata: core.Metadata{Name: "v1"}}
-}
-func (mockCustomTypeUpConverter) FromV1ToV2Alpha1(src *v1.MockCustomType) *v2alpha1.MockCustomType {
-	return &v2alpha1.MockCustomType{Metadata: core.Metadata{Name: "v2alpha1"}}
-}
-
-type mockCustomTypeDownConverter struct{}
-
-func (mockCustomTypeDownConverter) FromV1ToV1Alpha1(src *v1.MockCustomType) *v1alpha1.MockCustomType {
-	return &v1alpha1.MockCustomType{Metadata: core.Metadata{Name: "v1alpha1"}}
-}
-func (mockCustomTypeDownConverter) FromV2Alpha1ToV1(src *v2alpha1.MockCustomType) *v1.MockCustomType {
-	return &v1.MockCustomType{Metadata: core.Metadata{Name: "v1"}}
-}
-
 var _ = Describe("MockResourceConverter", func() {
 	BeforeEach(func() {
 		converter = conversion.NewMockResourceConverter(mockResourceUpConverter{}, mockResourceDownConverter{})
