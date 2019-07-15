@@ -14,27 +14,27 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.Project) (code_generator.Files, error) {
+func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.Version) (code_generator.Files, error) {
 	var files code_generator.Files
 
 	sort.SliceStable(projects, func(i, j int) bool {
-		vi, err := kubeapi.ParseVersion(projects[i].ProjectConfig.Version)
+		vi, err := kubeapi.ParseVersion(projects[i].VersionCpnfog.Version)
 		if err != nil {
 			return false
 		}
-		vj, err := kubeapi.ParseVersion(projects[j].ProjectConfig.Version)
+		vj, err := kubeapi.ParseVersion(projects[j].VersionCpnfog.Version)
 		if err != nil {
 			return false
 		}
 		return vi.LessThan(vj)
 	})
 
-	resourceNameToProjects := make(map[string][]*model.Project)
+	resourceNameToProjects := make(map[string][]*model.Version)
 
 	for index, project := range projects {
 		for _, res := range project.Resources {
 			// only generate files for the resources in our group, otherwise we import
-			if !project.ProjectConfig.IsOurProto(res.Filename) && !res.IsCustom {
+			if !project.VersionCpnfog.IsOurProto(res.Filename) && !res.IsCustom {
 				log.Printf("not generating solo-kit "+
 					"clients for resource %v.%v, "+
 					"resource proto package must match project proto package %v", res.ProtoPackage, res.Name, project.ProtoPackage)
@@ -42,12 +42,12 @@ func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.P
 			} else if res.IsCustom && res.CustomResource.Imported {
 				log.Printf("not generating solo-kit "+
 					"clients for resource %v.%v, "+
-					"custom resources from a different project are not generated", res.GoPackage, res.Name, project.ProjectConfig.GoPackage)
+					"custom resources from a different project are not generated", res.GoPackage, res.Name, project.VersionCpnfog.GoPackage)
 				continue
 			}
 
 			if _, found := resourceNameToProjects[res.Name]; !found {
-				resourceNameToProjects[res.Name] = make([]*model.Project, 0, len(projects)-index)
+				resourceNameToProjects[res.Name] = make([]*model.Version, 0, len(projects)-index)
 			}
 			resourceNameToProjects[res.Name] = append(resourceNameToProjects[res.Name], project)
 		}
@@ -68,7 +68,7 @@ func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.P
 	return files, nil
 }
 
-func getConversionsFromResourceProjects(resNameToProjects map[string][]*model.Project) []*model.Conversion {
+func getConversionsFromResourceProjects(resNameToProjects map[string][]*model.Version) []*model.Conversion {
 	conversions := make([]*model.Conversion, 0, len(resNameToProjects))
 	for resName, projects := range resNameToProjects {
 		if len(projects) < 2 {
@@ -139,7 +139,7 @@ func generateTestSuiteFile(suite *model.TestSuite, tmpl *template.Template) (str
 	return buf.String(), nil
 }
 
-func getConversionProjects(projects []*model.Project) []*model.ConversionProject {
+func getConversionProjects(projects []*model.Version) []*model.ConversionProject {
 	conversionProjects := make([]*model.ConversionProject, 0, len(projects))
 	for index := range projects {
 		conversionProjects = append(conversionProjects, getConversionProject(index, projects))
@@ -147,18 +147,18 @@ func getConversionProjects(projects []*model.Project) []*model.ConversionProject
 	return conversionProjects
 }
 
-func getConversionProject(index int, projects []*model.Project) *model.ConversionProject {
+func getConversionProject(index int, projects []*model.Version) *model.ConversionProject {
 	var nextVersion, previousVersion string
 	if index < len(projects)-1 {
-		nextVersion = projects[index+1].ProjectConfig.Version
+		nextVersion = projects[index+1].VersionCpnfog.Version
 	}
 	if index > 0 {
-		previousVersion = projects[index-1].ProjectConfig.Version
+		previousVersion = projects[index-1].VersionCpnfog.Version
 	}
 
 	return &model.ConversionProject{
-		Version:         projects[index].ProjectConfig.Version,
-		GoPackage:       projects[index].ProjectConfig.GoPackage,
+		Version:         projects[index].VersionCpnfog.Version,
+		GoPackage:       projects[index].VersionCpnfog.GoPackage,
 		NextVersion:     nextVersion,
 		PreviousVersion: previousVersion,
 	}

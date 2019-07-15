@@ -9,7 +9,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func ProjectDocsRootTemplate(project *model.Project, docsOptions *options.DocsOptions) *template.Template {
+func ProjectDocsRootTemplate(project *model.Version, docsOptions *options.DocsOptions) *template.Template {
 	return template.Must(template.New("pf").Funcs(funcs.TemplateFuncs(project, docsOptions)).Parse(`
 ===========================================
 API Reference for {{ .VersionConfig.Title}}

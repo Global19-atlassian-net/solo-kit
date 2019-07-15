@@ -28,17 +28,16 @@ type SoloKitProject struct {
 }
 
 type ApiGroup struct {
-	Name                   string           `json:"name"`
-	DocsDir                string           `json:"docs_dir"`
-	VersionConfigs         []*VersionConfig `json:"version_configs"`
-	ConversionGoPackage    string           `json:"conversion_go_package"`
-	ResourceGroupGoPackage string           `json:"resource_group_go_package"`
+	Name                   string                      `json:"name"`
+	DocsDir                string                      `json:"docs_dir"`
+	VersionConfigs         []*VersionConfig            `json:"version_configs"`
+	ResourceGroups         map[string][]ResourceConfig `json:"resource_groups"`
+	ResourceGroupGoPackage string                      `json:"resource_group_go_package"`
+	ConversionGoPackage    string                      `json:"conversion_go_package"`
 
 	// if set, this group will override the proto package typically used
 	// as the api group for the crd
 	CrdGroupOverride string `json:"crd_group_override"`
-	// define custom resources here
-	CustomResources []CustomResourceConfig `json:"custom_resources"`
 
 	// set by load
 	SoloKitProject              SoloKitProject
@@ -48,9 +47,9 @@ type ApiGroup struct {
 }
 
 type VersionConfig struct {
-	Version        string                      `json:"version"`
-	ResourceGroups map[string][]ResourceConfig `json:"resource_groups"`
-
+	Version string `json:"version"`
+	// define custom resources here
+	CustomResources []CustomResourceConfig `json:"custom_resources"`
 	// imported solokit projects
 	Imports []string `json:"imports"`
 
@@ -92,8 +91,8 @@ type CustomResourceConfig struct {
 	Imported bool
 }
 
-type Project struct {
-	ProjectConfig  VersionConfig
+type Version struct {
+	VersionCpnfog  VersionConfig
 	ProtoPackage   string
 	Resources      []*Resource
 	ResourceGroups []*ResourceGroup
@@ -127,7 +126,7 @@ type Resource struct {
 	// resource groups i belong to
 	ResourceGroups []*ResourceGroup
 	// project i belong to
-	Project *Project
+	Project *Version
 
 	Filename string // the proto file where this resource is contained
 	Version  string // set during parsing from this resource's solo-kit.json
@@ -152,7 +151,7 @@ type ResourceGroup struct {
 	Name      string // eg. api.gloo.solo.io
 	GoName    string // will be Api
 	Imports   string // if this resource group contains any imports from other projects
-	Project   *Project
+	Project   *Version
 	Resources []*Resource
 }
 
@@ -162,31 +161,33 @@ type XDSResource struct {
 	NameField    string
 	NoReferences bool
 
-	Project      *Project
+	Project      *Version
 	ProtoPackage string // eg. gloo.solo.io
 
 	Filename string // the proto file where this resource is contained
 }
 
-func LoadProjectConfig(path string) (ApiGroup, error) {
+func LoadProjectConfig(path string) (SoloKitProject, error) {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		return ApiGroup{}, err
+		return SoloKitProject{}, err
 	}
-	var skp ApiGroup
+	var skp SoloKitProject
 	err = json.Unmarshal(b, &skp)
 	if err != nil {
-		return ApiGroup{}, err
+		return SoloKitProject{}, err
 	}
 
 	skp.ProjectFile = path
-	for _, vc := range skp.VersionConfigs {
-		if vc.GoPackage == "" {
-			goPkg, err := detectGoPackageForProject(filepath.Dir(skp.ProjectFile) + "/" + vc.Version)
-			if err != nil {
-				return ApiGroup{}, err
+	for _, ag := range skp.ApiGroups {
+		for _, vc := range ag.VersionConfigs {
+			if vc.GoPackage == "" {
+				goPkg, err := detectGoPackageForVersion(filepath.Dir(skp.ProjectFile) + "/" + vc.Version)
+				if err != nil {
+					return SoloKitProject{}, err
+				}
+				vc.GoPackage = goPkg
 			}
-			vc.GoPackage = goPkg
 		}
 	}
 
@@ -195,10 +196,10 @@ func LoadProjectConfig(path string) (ApiGroup, error) {
 
 var goPackageStatementRegex = regexp.MustCompile(`option go_package.*=.*"(.*)";`)
 
-// Returns the value of the 'go_package' option of the first .proto file found in the same directory as projectFile
-func detectGoPackageForProject(projectDir string) (string, error) {
+// Returns the value of the 'go_package' option of the first .proto file found in the version's directory
+func detectGoPackageForVersion(versionDir string) (string, error) {
 	var goPkg string
-	if err := filepath.Walk(projectDir, func(protoFile string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(versionDir, func(protoFile string, info os.FileInfo, err error) error {
 		// already set
 		if goPkg != "" {
 			return nil
@@ -207,7 +208,7 @@ func detectGoPackageForProject(projectDir string) (string, error) {
 			return nil
 		}
 		// search for go_package on protos in the same dir as the project.json
-		if projectDir != filepath.Dir(protoFile) {
+		if versionDir != filepath.Dir(protoFile) {
 			return nil
 		}
 		content, err := ioutil.ReadFile(protoFile)
@@ -231,7 +232,7 @@ func detectGoPackageForProject(projectDir string) (string, error) {
 		return "", err
 	}
 	if goPkg == "" {
-		return "", errors.Errorf("no go_package statement found in root dir of project %v", projectDir)
+		return "", errors.Errorf("no go_package statement found in root dir of project %v", versionDir)
 	}
 	return goPkg, nil
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func ProcessDescriptors(projectConfig *model.VersionConfig, allProjectConfigs []*model.VersionConfig, descriptors []*descriptor.FileDescriptorProto) (*model.Project, error) {
+func ProcessDescriptors(projectConfig *model.VersionConfig, allProjectConfigs []*model.VersionConfig, descriptors []*descriptor.FileDescriptorProto) (*model.Version, error) {
 	req := &plugin_go.CodeGeneratorRequest{}
 	for _, file := range descriptors {
 		var added bool
@@ -31,7 +31,7 @@ func ProcessDescriptors(projectConfig *model.VersionConfig, allProjectConfigs []
 	return parseRequest(projectConfig, allProjectConfigs, req)
 }
 
-func parseRequest(projectConfig *model.VersionConfig, allProjectConfigs []*model.VersionConfig, req *plugin_go.CodeGeneratorRequest) (*model.Project, error) {
+func parseRequest(projectConfig *model.VersionConfig, allProjectConfigs []*model.VersionConfig, req *plugin_go.CodeGeneratorRequest) (*model.Version, error) {
 	log.Printf("project config: %v", projectConfig)
 
 	descriptors := protokit.ParseCodeGenRequest(req)
@@ -54,8 +54,8 @@ func parseRequest(projectConfig *model.VersionConfig, allProjectConfigs []*model
 		services = append(services, file.GetServices()...)
 	}
 
-	project := &model.Project{
-		ProjectConfig: *projectConfig,
+	project := &model.Version{
+		VersionCpnfog: *projectConfig,
 		ProtoPackage:  projectConfig.SoloKitProject.Name,
 		Request:       req,
 	}

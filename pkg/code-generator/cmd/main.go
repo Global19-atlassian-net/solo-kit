@@ -86,7 +86,7 @@ func Generate(opts GenerateOptions) error {
 	log.Printf("collected projects: %v", func() []string {
 		var names []string
 		for _, skp := range soloKitProjects {
-			names = append(names, skp.Name)
+			names = append(names, skp.Title)
 		}
 		sort.Strings(names)
 		return names
@@ -98,9 +98,11 @@ func Generate(opts GenerateOptions) error {
 			return false
 		}
 		for _, skp := range soloKitProjects {
-			for _, vc := range skp.VersionConfigs {
-				if strings.HasPrefix(protoFile, filepath.Dir(skp.ProjectFile)+"/"+vc.Version) {
-					return true
+			for _, ag := range skp.ApiGroups {
+				for _, vc := range ag.VersionConfigs {
+					if strings.HasPrefix(protoFile, filepath.Dir(skp.ProjectFile)+"/"+vc.Version) {
+						return true
+					}
 				}
 			}
 		}
@@ -125,116 +127,123 @@ func Generate(opts GenerateOptions) error {
 
 	var protoDescriptors []*descriptor.FileDescriptorProto
 	for _, skp := range soloKitProjects {
-		for _, vc := range skp.VersionConfigs {
-			importedResources, err := importCustomResources(vc.Imports)
-			if err != nil {
-				return err
-			}
-
-			vc.CustomResources = append(vc.CustomResources, importedResources...)
-
-			for _, desc := range descriptors {
-				if filepath.Dir(desc.ProtoFilePath) == filepath.Dir(skp.ProjectFile)+"/"+vc.Version {
-					vc.VersionProtos = append(vc.VersionProtos, desc.GetName())
+		for _, ag := range skp.ApiGroups {
+			for _, vc := range ag.VersionConfigs {
+				importedResources, err := importCustomResources(vc.Imports)
+				if err != nil {
+					return err
 				}
-				protoDescriptors = append(protoDescriptors, desc.FileDescriptorProto)
+
+				vc.CustomResources = append(vc.CustomResources, importedResources...)
+
+				for _, vc := range ag.VersionConfigs {
+					for _, desc := range descriptors {
+						if filepath.Dir(desc.ProtoFilePath) == filepath.Dir(skp.ProjectFile)+"/"+vc.Version {
+							vc.VersionProtos = append(vc.VersionProtos, desc.GetName())
+						}
+						protoDescriptors = append(protoDescriptors, desc.FileDescriptorProto)
+					}
+				}
 			}
 		}
 	}
 
 	// Store all projects for conversion generation.
-	allProjects := make([]*model.Project, 0, len(soloKitProjects))
+	allProjects := make([]*model.Version, 0, len(soloKitProjects))
 	for _, skp := range soloKitProjects {
-		for _, vc := range skp.VersionConfigs {
-			vc.SoloKitProject = *skp
+		for _, ag := range skp.ApiGroups {
+			ag.SoloKitProject = *skp
+			for _, vc := range ag.VersionConfigs {
+				vc.ApiGroup = *ag
 
-			// Build a 'Project' object that contains a resource for each message that:
-			// - is contained in the FileDescriptor and
-			// - is a solo kit resource (i.e. it has a field named 'metadata')
+				// Build a 'Version' object that contains a resource for each message that:
+				// - is contained in the FileDescriptor and
+				// - is a solo kit resource (i.e. it has a field named 'metadata')
 
-			project, err := parser.ProcessDescriptors(vc, skp.VersionConfigs, protoDescriptors)
-			if err != nil {
-				return err
-			}
-			allProjects = append(allProjects, project)
+				project, err := parser.ProcessDescriptors(vc, ag.VersionConfigs, protoDescriptors)
+				if err != nil {
+					return err
+				}
+				allProjects = append(allProjects, project)
 
-			code, err := codegen.GenerateProjectFiles(project, true, opts.SkipGeneratedTests)
-			if err != nil {
-				return err
-			}
-
-			if skp.DocsDir != "" && (genDocs != nil) {
-				docs, err := docgen.GenerateFiles(project, genDocs)
+				code, err := codegen.GenerateProjectFiles(project, true, opts.SkipGeneratedTests)
 				if err != nil {
 					return err
 				}
 
-				for _, file := range docs {
-					path := filepath.Join(absoluteRoot, skp.DocsDir, file.Filename)
+				if ag.DocsDir != "" && (genDocs != nil) {
+					docs, err := docgen.GenerateFiles(project, genDocs)
+					if err != nil {
+						return err
+					}
+
+					for _, file := range docs {
+						path := filepath.Join(absoluteRoot, ag.DocsDir, file.Filename)
+						if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+							return err
+						}
+						if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
+							return err
+						}
+					}
+				}
+
+				outDir := filepath.Join(gopathSrc(), project.VersionCpnfog.GoPackage)
+
+				for _, file := range code {
+					path := filepath.Join(outDir, file.Filename)
 					if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
 						return err
 					}
 					if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
 						return err
 					}
+					if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
+						return errors.Wrapf(err, "gofmt failed: %s", out)
+					}
+
+					if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
+						return errors.Wrapf(err, "goimports failed: %s", out)
+					}
+				}
+
+				// Generate mocks
+				// need to run after to make sure all resources have already been written
+				// Set this env var during tests so that mocks are not generated
+				if !opts.SkipGenMocks {
+					if err := genMocks(code, outDir, absoluteRoot); err != nil {
+						return err
+					}
 				}
 			}
 
-			outDir := filepath.Join(gopathSrc(), project.ProjectConfig.GoPackage)
+			// TODO joekelley know when to skip this (no go package?)
+			if ag.ConversionGoPackage != "" {
+				goPackageSegments := strings.Split(ag.ConversionGoPackage, "/")
+				ag.ConversionGoPackageShort = goPackageSegments[len(goPackageSegments)-1]
 
-			for _, file := range code {
-				path := filepath.Join(outDir, file.Filename)
-				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+				code, err := codegen.GenerateConversionFiles(ag, allProjects)
+				if err != nil {
 					return err
 				}
-				if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-					return err
-				}
-				if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
-					return errors.Wrapf(err, "gofmt failed: %s", out)
-				}
 
-				if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
-					return errors.Wrapf(err, "goimports failed: %s", out)
-				}
-			}
+				outDir := filepath.Join(gopathSrc(), ag.ConversionGoPackage)
 
-			// Generate mocks
-			// need to run after to make sure all resources have already been written
-			// Set this env var during tests so that mocks are not generated
-			if !opts.SkipGenMocks {
-				if err := genMocks(code, outDir, absoluteRoot); err != nil {
-					return err
-				}
-			}
-		}
+				for _, file := range code {
+					path := filepath.Join(outDir, file.Filename)
+					if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+						return err
+					}
+					if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
+						return err
+					}
+					if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
+						return errors.Wrapf(err, "gofmt failed: %s", out)
+					}
 
-		// TODO joekelley know when to skip this (no go package)
-		if skp.ConversionGoPackage != "" {
-			goPackageSegments := strings.Split(skp.ConversionGoPackage, "/")
-			skp.ConversionGoPackageShort = goPackageSegments[len(goPackageSegments)-1]
-
-			code, err := codegen.GenerateConversionFiles(skp, allProjects)
-			if err != nil {
-				return err
-			}
-
-			outDir := filepath.Join(gopathSrc(), skp.ConversionGoPackage)
-
-			for _, file := range code {
-				path := filepath.Join(outDir, file.Filename)
-				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-					return err
-				}
-				if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-					return err
-				}
-				if out, err := exec.Command("gofmt", "-w", path).CombinedOutput(); err != nil {
-					return errors.Wrapf(err, "gofmt failed: %s", out)
-				}
-
-				if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
-					return errors.Wrapf(err, "goimports failed: %s", out)
+					if out, err := exec.Command("goimports", "-w", path).CombinedOutput(); err != nil {
+						return errors.Wrapf(err, "goimports failed: %s", out)
+					}
 				}
 			}
 		}
@@ -294,8 +303,8 @@ func gopathSrc() string {
 	return filepath.Join(os.Getenv("GOPATH"), "src")
 }
 
-func collectProjectsFromRoot(root string, skipDirs []string) ([]*model.ApiGroup, error) {
-	var soloKitProjects []*model.ApiGroup
+func collectProjectsFromRoot(root string, skipDirs []string) ([]*model.SoloKitProject, error) {
+	var soloKitProjects []*model.SoloKitProject
 
 	if err := filepath.Walk(root, func(projectFile string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -581,19 +590,21 @@ func importCustomResources(imports []string) ([]model.CustomResourceConfig, erro
 			return nil, err
 		}
 
-		var soloKitProject model.ApiGroup
+		var soloKitProject model.SoloKitProject
 		err = json.Unmarshal(byt, &soloKitProject)
 		if err != nil {
 			return nil, err
 		}
-		for _, vc := range soloKitProject.VersionConfigs {
-			var customResources []model.CustomResourceConfig
-			for _, cr := range vc.CustomResources {
-				cr.Package = vc.GoPackage
-				cr.Imported = true
-				customResources = append(customResources, cr)
+		for _, ag := range soloKitProject.ApiGroups {
+			for _, vc := range ag.VersionConfigs {
+				var customResources []model.CustomResourceConfig
+				for _, cr := range vc.CustomResources {
+					cr.Package = vc.GoPackage
+					cr.Imported = true
+					customResources = append(customResources, cr)
+				}
+				results = append(results, customResources...)
 			}
-			results = append(results, customResources...)
 		}
 	}
 
