@@ -18,11 +18,11 @@ func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.V
 	var files code_generator.Files
 
 	sort.SliceStable(projects, func(i, j int) bool {
-		vi, err := kubeapi.ParseVersion(projects[i].VersionCpnfog.Version)
+		vi, err := kubeapi.ParseVersion(projects[i].VersionConfig.Version)
 		if err != nil {
 			return false
 		}
-		vj, err := kubeapi.ParseVersion(projects[j].VersionCpnfog.Version)
+		vj, err := kubeapi.ParseVersion(projects[j].VersionConfig.Version)
 		if err != nil {
 			return false
 		}
@@ -34,7 +34,7 @@ func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.V
 	for index, project := range projects {
 		for _, res := range project.Resources {
 			// only generate files for the resources in our group, otherwise we import
-			if !project.VersionCpnfog.IsOurProto(res.Filename) && !res.IsCustom {
+			if !project.VersionConfig.IsOurProto(res.Filename) && !res.IsCustom {
 				log.Printf("not generating solo-kit "+
 					"clients for resource %v.%v, "+
 					"resource proto package must match project proto package %v", res.ProtoPackage, res.Name, project.ProtoPackage)
@@ -42,7 +42,7 @@ func GenerateConversionFiles(soloKitProject *model.ApiGroup, projects []*model.V
 			} else if res.IsCustom && res.CustomResource.Imported {
 				log.Printf("not generating solo-kit "+
 					"clients for resource %v.%v, "+
-					"custom resources from a different project are not generated", res.GoPackage, res.Name, project.VersionCpnfog.GoPackage)
+					"custom resources from a different project are not generated", res.GoPackage, res.Name, project.VersionConfig.GoPackage)
 				continue
 			}
 
@@ -150,15 +150,15 @@ func getConversionProjects(projects []*model.Version) []*model.ConversionProject
 func getConversionProject(index int, projects []*model.Version) *model.ConversionProject {
 	var nextVersion, previousVersion string
 	if index < len(projects)-1 {
-		nextVersion = projects[index+1].VersionCpnfog.Version
+		nextVersion = projects[index+1].VersionConfig.Version
 	}
 	if index > 0 {
-		previousVersion = projects[index-1].VersionCpnfog.Version
+		previousVersion = projects[index-1].VersionConfig.Version
 	}
 
 	return &model.ConversionProject{
-		Version:         projects[index].VersionCpnfog.Version,
-		GoPackage:       projects[index].VersionCpnfog.GoPackage,
+		Version:         projects[index].VersionConfig.Version,
+		GoPackage:       projects[index].VersionConfig.GoPackage,
 		NextVersion:     nextVersion,
 		PreviousVersion: previousVersion,
 	}

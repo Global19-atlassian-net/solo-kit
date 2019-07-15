@@ -167,7 +167,7 @@ func (d *DocsGen) GenerateFilesForProject() (code_generator.Files, error) {
 			return nil, err
 		}
 		v = append(v, code_generator.File{
-			Filename: strcase.ToSnake(d.Project.VersionCpnfog.SoloKitProject.Name) + suffix,
+			Filename: strcase.ToSnake(d.Project.VersionConfig.ApiGroup.Name) + suffix,
 			Content:  content,
 		})
 	}

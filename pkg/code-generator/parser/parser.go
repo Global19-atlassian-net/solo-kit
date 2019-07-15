@@ -55,8 +55,8 @@ func parseRequest(projectConfig *model.VersionConfig, allProjectConfigs []*model
 	}
 
 	project := &model.Version{
-		VersionCpnfog: *projectConfig,
-		ProtoPackage:  projectConfig.SoloKitProject.Name,
+		VersionConfig: *projectConfig,
+		ProtoPackage:  projectConfig.ApiGroup.Name,
 		Request:       req,
 	}
 	resources, resourceGroups, err := getResources(project, allProjectConfigs, messages)

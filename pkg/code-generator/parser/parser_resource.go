@@ -69,7 +69,7 @@ func getResource(resources []*model.Resource, project model.VersionConfig, cfg m
 	return nil, errors.Errorf("found %v resources found which match %v, try specifying a version", len(possibleResources), cfg)
 }
 
-func getResources(project *model.Version, allProjectConfigs []*model.VersionConfig, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
+func getResources(version *model.Version, allProjectConfigs []*model.VersionConfig, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
 	var (
 		resources []*model.Resource
 	)
@@ -88,11 +88,11 @@ func getResources(project *model.Version, allProjectConfigs []*model.VersionConf
 				break
 			}
 		}
-		resource.Project = project
+		resource.Project = version
 		resources = append(resources, resource)
 	}
 
-	for _, custom := range project.VersionCpnfog.CustomResources {
+	for _, custom := range version.VersionConfig.CustomResources {
 		impPrefix := strings.Replace(custom.Package, "/", "_", -1)
 		impPrefix = strings.Replace(impPrefix, ".", "_", -1)
 		impPrefix = strings.Replace(impPrefix, "-", "_", -1)
@@ -104,7 +104,7 @@ func getResources(project *model.Version, allProjectConfigs []*model.VersionConf
 			ClusterScoped:      custom.ClusterScoped,
 			CustomImportPrefix: impPrefix,
 			SkipDocsGen:        true,
-			Project:            project,
+			Project:            version,
 			IsCustom:           true,
 			CustomResource:     custom,
 		})
@@ -114,19 +114,19 @@ func getResources(project *model.Version, allProjectConfigs []*model.VersionConf
 		resourceGroups []*model.ResourceGroup
 	)
 
-	for groupName, resourcesCfg := range project.VersionCpnfog.ResourceGroups {
+	for groupName, resourcesCfg := range version.VersionConfig.ApiGroup.ResourceGroups {
 		var resourcesForGroup []*model.Resource
 		for _, resourceCfg := range resourcesCfg {
-			resource, err := getResource(resources, project.VersionCpnfog, resourceCfg)
+			resource, err := getResource(resources, version.VersionConfig, resourceCfg)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			var importPrefix string
-			if !project.VersionCpnfog.IsOurProto(resource.Filename) && !resource.IsCustom {
+			if !version.VersionConfig.IsOurProto(resource.Filename) && !resource.IsCustom {
 				importPrefix = resource.ProtoPackage
 			} else if resource.IsCustom && resource.CustomResource.Imported {
-				// If is custom resource from a different project use import prefix
+				// If is custom resource from a different version use import prefix
 				importPrefix = resource.CustomImportPrefix
 			}
 
@@ -140,7 +140,7 @@ func getResources(project *model.Version, allProjectConfigs []*model.VersionConf
 		rg := &model.ResourceGroup{
 			Name:      groupName,
 			GoName:    goName(groupName),
-			Project:   project,
+			Project:   version,
 			Resources: resourcesForGroup,
 		}
 		for _, res := range resourcesForGroup {
@@ -150,7 +150,7 @@ func getResources(project *model.Version, allProjectConfigs []*model.VersionConf
 		imports := make(map[string]string)
 		for _, res := range rg.Resources {
 			// only generate files for the resources in our group, otherwise we import
-			if res.GoPackage != rg.Project.VersionCpnfog.GoPackage {
+			if res.GoPackage != rg.Project.VersionConfig.GoPackage {
 				// add import
 				imports[strings.TrimSuffix(res.ImportPrefix, ".")] = res.GoPackage
 			}

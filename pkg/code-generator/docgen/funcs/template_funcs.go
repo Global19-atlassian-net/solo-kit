@@ -314,8 +314,8 @@ func linkForResource(project *model.Version, docsOptions *options.DocsOptions) f
 				return fmt.Sprintf("[%v](%v%v%v#%v)", resource.Name, prefix, resource.Filename, ext, name), nil
 			}
 		}
-		return "", errors.Errorf("internal error: could not find file for resource %v in project %v",
-			resource.Filename, project.VersionCpnfog.SoloKitProject.Name)
+		return "", errors.Errorf("internal error: could not find file for resource %v in apigroup %v",
+			resource.Filename, project.VersionConfig.ApiGroup.Name)
 	}
 }
 
@@ -330,8 +330,8 @@ func resourceForMessage(project *model.Version) func(msg *protokit.Descriptor) (
 			}
 		}
 		return nil, nil
-		return nil, errors.Errorf("internal error: could not find file for resource for msg %v in project %v",
-			msg.GetName(), project.VersionCpnfog.SoloKitProject.Name)
+		return nil, errors.Errorf("internal error: could not find file for resource for msg %v in apigroup %v",
+			msg.GetName(), project.VersionConfig.ApiGroup.Name)
 	}
 }
 

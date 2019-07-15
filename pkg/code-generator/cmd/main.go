@@ -188,7 +188,7 @@ func Generate(opts GenerateOptions) error {
 					}
 				}
 
-				outDir := filepath.Join(gopathSrc(), project.VersionCpnfog.GoPackage)
+				outDir := filepath.Join(gopathSrc(), project.VersionConfig.GoPackage)
 
 				for _, file := range code {
 					path := filepath.Join(outDir, file.Filename)

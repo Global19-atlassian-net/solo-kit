@@ -92,7 +92,7 @@ type CustomResourceConfig struct {
 }
 
 type Version struct {
-	VersionCpnfog  VersionConfig
+	VersionConfig  VersionConfig
 	ProtoPackage   string
 	Resources      []*Resource
 	ResourceGroups []*ResourceGroup

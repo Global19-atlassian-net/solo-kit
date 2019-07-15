@@ -26,7 +26,7 @@ func GenerateProjectFiles(project *model.Version, skipOutOfPackageFiles, skipGen
 
 	for _, res := range project.Resources {
 		// only generate files for the resources in our group, otherwise we import
-		if !project.VersionCpnfog.IsOurProto(res.Filename) && !res.IsCustom {
+		if !project.VersionConfig.IsOurProto(res.Filename) && !res.IsCustom {
 			log.Printf("not generating solo-kit "+
 				"clients for resource %v.%v, "+
 				"resource proto package must match project proto package %v", res.ProtoPackage, res.Name, project.ProtoPackage)
@@ -34,7 +34,7 @@ func GenerateProjectFiles(project *model.Version, skipOutOfPackageFiles, skipGen
 		} else if res.IsCustom && res.CustomResource.Imported {
 			log.Printf("not generating solo-kit "+
 				"clients for resource %v.%v, "+
-				"custom resources from a different project are not generated", res.GoPackage, res.Name, project.VersionCpnfog.GoPackage)
+				"custom resources from a different project are not generated", res.GoPackage, res.Name, project.VersionConfig.GoPackage)
 			continue
 		}
 
@@ -57,7 +57,7 @@ func GenerateProjectFiles(project *model.Version, skipOutOfPackageFiles, skipGen
 	}
 
 	for _, res := range project.XDSResources {
-		if skipOutOfPackageFiles && !project.VersionCpnfog.IsOurProto(res.Filename) {
+		if skipOutOfPackageFiles && !project.VersionConfig.IsOurProto(res.Filename) {
 			continue
 		}
 		fs, err := generateFilesForXdsResource(res)
@@ -149,10 +149,10 @@ func generateFilesForProject(project *model.Version) (code_generator.Files, erro
 	} {
 		content, err := generateProjectFile(project, tmpl)
 		if err != nil {
-			return nil, errors.Wrapf(err, "internal error: processing template '%v' for project %v failed", tmpl.ParseName, project.VersionCpnfog.SoloKitProject.Name)
+			return nil, errors.Wrapf(err, "internal error: processing template '%v' for apigroup %v failed", tmpl.ParseName, project.VersionConfig.ApiGroup.Name)
 		}
 		v = append(v, code_generator.File{
-			Filename: strcase.ToSnake(project.VersionCpnfog.SoloKitProject.Name) + suffix,
+			Filename: strcase.ToSnake(project.VersionConfig.ApiGroup.Name) + suffix,
 			Content:  content,
 		})
 	}

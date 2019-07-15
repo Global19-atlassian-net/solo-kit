@@ -6,7 +6,7 @@ import (
 
 var ResourceGroupEventLoopTestTemplate = template.Must(template.New("resource_group_event_loop_test").Funcs(Funcs).Parse(`// +build solokit
 
-package {{ .Project.VersionCpnfog.Version }}
+package {{ .Project.VersionConfig.Version }}
 
 {{- $clients := new_str_slice }}
 {{- range .Resources}}

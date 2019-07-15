@@ -4,7 +4,7 @@ import (
 	"text/template"
 )
 
-var ResourceGroupEventLoopTemplate = template.Must(template.New("resource_group_event_loop").Funcs(Funcs).Parse(`package {{ .Project.VersionCpnfog.Version }}
+var ResourceGroupEventLoopTemplate = template.Must(template.New("resource_group_event_loop").Funcs(Funcs).Parse(`package {{ .Project.VersionConfig.Version }}
 
 import (
 	"context"
@@ -50,7 +50,7 @@ func New{{ .GoName }}EventLoop(emitter {{ .GoName }}Emitter, syncer {{ .GoName }
 
 func (el *{{ lower_camel .GoName }}EventLoop) Run(namespaces []string, opts clients.WatchOpts) (<-chan error, error) {
 	opts = opts.WithDefaults()
-	opts.Ctx = contextutils.WithLogger(opts.Ctx, "{{ .Project.VersionCpnfog.Version }}.event_loop")
+	opts.Ctx = contextutils.WithLogger(opts.Ctx, "{{ .Project.VersionConfig.Version }}.event_loop")
 	logger := contextutils.LoggerFrom(opts.Ctx)
 	logger.Infof("event loop started")
 
@@ -60,7 +60,7 @@ func (el *{{ lower_camel .GoName }}EventLoop) Run(namespaces []string, opts clie
 	if err != nil {
 		return nil, errors.Wrapf(err, "starting snapshot watch")
 	}
-	go errutils.AggregateErrs(opts.Ctx, errs, emitterErrs, "{{ .Project.VersionCpnfog.Version }}.emitter errors")
+	go errutils.AggregateErrs(opts.Ctx, errs, emitterErrs, "{{ .Project.VersionConfig.Version }}.emitter errors")
 	go func() {
 		// create a new context for each loop, cancel it before each loop
 		var cancel context.CancelFunc = func() {}
