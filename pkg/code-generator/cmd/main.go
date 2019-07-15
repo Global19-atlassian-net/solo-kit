@@ -128,14 +128,12 @@ func Generate(opts GenerateOptions) error {
 	var protoDescriptors []*descriptor.FileDescriptorProto
 	for _, skp := range soloKitProjects {
 		for _, ag := range skp.ApiGroups {
+			importedResources, err := importCustomResources(ag.Imports)
+			if err != nil {
+				return err
+			}
 			for _, vc := range ag.VersionConfigs {
-				importedResources, err := importCustomResources(vc.Imports)
-				if err != nil {
-					return err
-				}
-
 				vc.CustomResources = append(vc.CustomResources, importedResources...)
-
 				for _, vc := range ag.VersionConfigs {
 					for _, desc := range descriptors {
 						if filepath.Dir(desc.ProtoFilePath) == filepath.Dir(skp.ProjectFile)+"/"+vc.Version {
@@ -152,15 +150,15 @@ func Generate(opts GenerateOptions) error {
 	allProjects := make([]*model.Version, 0, len(soloKitProjects))
 	for _, skp := range soloKitProjects {
 		for _, ag := range skp.ApiGroups {
-			ag.SoloKitProject = *skp
+			ag.SoloKitProject = skp
 			for _, vc := range ag.VersionConfigs {
-				vc.ApiGroup = *ag
+				vc.ApiGroup = ag
 
 				// Build a 'Version' object that contains a resource for each message that:
 				// - is contained in the FileDescriptor and
 				// - is a solo kit resource (i.e. it has a field named 'metadata')
 
-				project, err := parser.ProcessDescriptors(vc, ag.VersionConfigs, protoDescriptors)
+				project, err := parser.ProcessDescriptors(vc, ag, protoDescriptors)
 				if err != nil {
 					return err
 				}
@@ -599,7 +597,7 @@ func importCustomResources(imports []string) ([]model.CustomResourceConfig, erro
 			for _, vc := range ag.VersionConfigs {
 				var customResources []model.CustomResourceConfig
 				for _, cr := range vc.CustomResources {
-					cr.Package = vc.GoPackage
+					cr.Package = ag.ResourceGroupGoPackage
 					cr.Imported = true
 					customResources = append(customResources, cr)
 				}

@@ -13,7 +13,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func ProcessDescriptors(projectConfig *model.VersionConfig, allProjectConfigs []*model.VersionConfig, descriptors []*descriptor.FileDescriptorProto) (*model.Version, error) {
+func ProcessDescriptors(projectConfig *model.VersionConfig, apiGroup *model.ApiGroup, descriptors []*descriptor.FileDescriptorProto) (*model.Version, error) {
 	req := &plugin_go.CodeGeneratorRequest{}
 	for _, file := range descriptors {
 		var added bool
@@ -28,10 +28,10 @@ func ProcessDescriptors(projectConfig *model.VersionConfig, allProjectConfigs []
 		req.FileToGenerate = append(req.FileToGenerate, file.GetName())
 		req.ProtoFile = append(req.ProtoFile, file)
 	}
-	return parseRequest(projectConfig, allProjectConfigs, req)
+	return parseRequest(projectConfig, apiGroup, req)
 }
 
-func parseRequest(projectConfig *model.VersionConfig, allProjectConfigs []*model.VersionConfig, req *plugin_go.CodeGeneratorRequest) (*model.Version, error) {
+func parseRequest(projectConfig *model.VersionConfig, apiGroup *model.ApiGroup, req *plugin_go.CodeGeneratorRequest) (*model.Version, error) {
 	log.Printf("project config: %v", projectConfig)
 
 	descriptors := protokit.ParseCodeGenRequest(req)
@@ -59,7 +59,7 @@ func parseRequest(projectConfig *model.VersionConfig, allProjectConfigs []*model
 		ProtoPackage:  projectConfig.ApiGroup.Name,
 		Request:       req,
 	}
-	resources, resourceGroups, err := getResources(project, allProjectConfigs, messages)
+	resources, resourceGroups, err := getResources(project, apiGroup, messages)
 	if err != nil {
 		return nil, err
 	}

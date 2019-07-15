@@ -39,8 +39,11 @@ type ApiGroup struct {
 	// as the api group for the crd
 	CrdGroupOverride string `json:"crd_group_override"`
 
+	// imported solokit projects, used for resource groups
+	Imports []string `json:"imports"`
+
 	// set by load
-	SoloKitProject              SoloKitProject
+	SoloKitProject              *SoloKitProject
 	Conversions                 []*Conversion
 	ConversionGoPackageShort    string
 	ResourceGroupGoPackageShort string
@@ -48,16 +51,14 @@ type ApiGroup struct {
 
 type VersionConfig struct {
 	Version string `json:"version"`
+
 	// define custom resources here
 	CustomResources []CustomResourceConfig `json:"custom_resources"`
-	// imported solokit projects
-	Imports []string `json:"imports"`
-
 	// set by load if not specified
 	GoPackage string `json:"go_package"`
 
 	// set by load
-	ApiGroup      ApiGroup
+	ApiGroup      *ApiGroup
 	VersionProtos []string
 }
 
@@ -73,7 +74,7 @@ func (p VersionConfig) IsOurProto(protoFile string) bool {
 type ResourceConfig struct {
 	ResourceName    string `json:"name"`
 	ResourcePackage string `json:"package"` // resource package doubles as the proto package or the go import package
-	ResourceVersion string `json:"version"` // version of the resource, used to distinguish when multiple versions of a resource exist
+	ResourceVersion string `json:"version"`
 }
 
 // Create a Solo-Kit backed resource from

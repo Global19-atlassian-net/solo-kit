@@ -1,18 +1,8 @@
 {
   "title": "Solo-Kit Multicluster Manager",
-  "name": "multicluster.solo.io",
-  "version_configs": [
+  "api_groups": [
     {
-      "version": "v1",
-      "go_package": "github.com/solo-io/solo-kit/pkg/multicluster/v1",
-      "custom_resources": [
-        {
-          "package": "github.com/solo-io/solo-kit/api/multicluster/v1",
-          "type": "KubeConfig",
-          "plural_name": "kubeconfigs",
-          "short_name": "kc"
-        }
-      ],
+      "name": "multicluster.solo.io",
       "resource_groups": {
         "kubeconfigs.multicluster.solo.io": [
           {
@@ -20,7 +10,21 @@
             "package": "github.com/solo-io/solo-kit/api/multicluster/v1"
           }
         ]
-      }
+      },
+      "version_configs": [
+        {
+          "version": "v1",
+          "go_package": "github.com/solo-io/solo-kit/pkg/multicluster/v1",
+          "custom_resources": [
+            {
+              "package": "github.com/solo-io/solo-kit/api/multicluster/v1",
+              "type": "KubeConfig",
+              "plural_name": "kubeconfigs",
+              "short_name": "kc"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -34,7 +34,7 @@ type ProtoMessageWrapper struct {
 	Message   *protokit.Descriptor
 }
 
-func getResource(resources []*model.Resource, project model.VersionConfig, cfg model.ResourceConfig) (*model.Resource, error) {
+func getResource(resources []*model.Resource, versionConfig model.VersionConfig, cfg model.ResourceConfig) (*model.Resource, error) {
 	matches := func(res *model.Resource) bool {
 		if res.Name == cfg.ResourceName &&
 			(res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage) {
@@ -62,14 +62,14 @@ func getResource(resources []*model.Resource, project model.VersionConfig, cfg m
 	// default to using the version matching the project itself
 	// only works for this project's resources
 	for _, res := range possibleResources {
-		if res.GoPackage == project.GoPackage {
+		if res.GoPackage == versionConfig.GoPackage {
 			return res, nil
 		}
 	}
 	return nil, errors.Errorf("found %v resources found which match %v, try specifying a version", len(possibleResources), cfg)
 }
 
-func getResources(version *model.Version, allProjectConfigs []*model.VersionConfig, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
+func getResources(version *model.Version, apiGroup *model.ApiGroup, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
 	var (
 		resources []*model.Resource
 	)
@@ -82,9 +82,9 @@ func getResources(version *model.Version, allProjectConfigs []*model.VersionConf
 			// not a solo-kit resource, ignore
 			continue
 		}
-		for _, projectCfg := range allProjectConfigs {
-			if projectCfg.IsOurProto(resource.Filename) {
-				resource.Version = projectCfg.Version
+		for _, vc := range apiGroup.VersionConfigs {
+			if vc.IsOurProto(resource.Filename) {
+				resource.Version = vc.Version
 				break
 			}
 		}

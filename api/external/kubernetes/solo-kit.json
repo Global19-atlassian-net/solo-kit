@@ -1,10 +1,8 @@
 {
   "title": "solo-kit",
-  "name": "kubernetes.solo.io",
-  "version_configs": [
+  "api_groups": [
     {
-      "version": "kubernetes",
-      "go_package": "github.com/solo-io/solo-kit/pkg/api/v1/resources/common/kubernetes",
+      "name": "kubernetes.solo.io",
       "custom_resources": [
         {
           "package": "github.com/solo-io/solo-kit/api/external/kubernetes/pod",
@@ -41,6 +39,12 @@
           "type": "CustomResourceDefinition",
           "plural_name": "customresourcedefinition",
           "short_name": "crd "
+        }
+      ],
+      "version_configs": [
+        {
+          "version": "kubernetes",
+          "go_package": "github.com/solo-io/solo-kit/pkg/api/v1/resources/common/kubernetes"
         }
       ]
     }
