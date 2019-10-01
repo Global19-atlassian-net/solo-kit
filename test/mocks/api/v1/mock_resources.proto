@@ -38,11 +38,12 @@ below Comments a
 
 /*
 Mock resources for goofin off
-@solo-kit:resource.short_name=mk
-@solo-kit:resource.plural_name=mocks
-@solo-kit:resource.resource_groups=testing.solo.io
 */
 message MockResource {
+
+    option (core.solo.io.resource).short_name = "mk";
+    option (core.solo.io.resource).plural_name = "mocks";
+
     core.solo.io.Status status = 6 [(gogoproto.nullable) = false];
     core.solo.io.Metadata metadata = 7 [(gogoproto.nullable) = false];
 
@@ -55,12 +56,11 @@ message MockResource {
     };
 }
 
-/*
-@solo-kit:resource.short_name=fk
-@solo-kit:resource.plural_name=fakes
-@solo-kit:resource.resource_groups=testing.solo.io
-*/
 message FakeResource {
+
+    option (core.solo.io.resource).short_name = "fk";
+    option (core.solo.io.resource).plural_name = "fakes";
+
     uint32 count = 1;
     core.solo.io.Metadata metadata = 7 [(gogoproto.nullable) = false];
 }

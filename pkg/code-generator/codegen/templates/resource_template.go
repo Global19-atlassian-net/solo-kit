@@ -20,8 +20,8 @@ import (
 {{- if not $.IsCustom }}
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 {{- end }}
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func New{{ .Name }}(namespace, name string) *{{ .Name }} {
@@ -61,6 +61,10 @@ func (r *{{ .Name }}) Hash() uint64 {
 
 	resources.UpdateMetadata(clone, func(meta *core.Metadata) {
 		meta.ResourceVersion = ""
+
+		{{- if $.SkipHashingAnnotations }}
+		meta.Annotations = nil
+		{{- end }}
 	})
 
 	return hashutils.HashAll(clone)
@@ -82,6 +86,11 @@ func (r *{{ .Name }}) SetStatus(status core.Status) {
 func (r *{{ .Name }}) Hash() uint64 {
 	metaCopy := r.GetMetadata()
 	metaCopy.ResourceVersion = ""
+	metaCopy.Generation = 0
+	// investigate zeroing out owner refs as well
+	{{- if $.SkipHashingAnnotations }}
+	metaCopy.Annotations = nil
+	{{- end }}
 	return hashutils.HashAll(
 		metaCopy,
 {{- range .Fields }}
@@ -97,8 +106,12 @@ func (r *{{ .Name }}) Hash() uint64 {
 
 {{- end }}
 
+
+func (r *{{ .Name }}) GroupVersionKind() schema.GroupVersionKind {
+	return {{ .Name }}GVK
+}
+
 type {{ .Name }}List []*{{ .Name }}
-type {{ upper_camel .PluralName }}ByNamespace map[string]{{ .Name }}List
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list {{ .Name }}List) Find(namespace, name string) (*{{ .Name }}, error) {
@@ -167,6 +180,12 @@ func (list {{ .Name }}List) Each(f func(element *{{ .Name }})) {
 	}
 }
 
+func (list {{ .Name }}List) EachResource(f func(element resources.Resource)) {
+	for _, {{ lower_camel .Name }} := range list {
+		f({{ lower_camel .Name }})
+	}
+}
+
 func (list {{ .Name }}List) AsInterfaces() []interface{}{
 	var asInterfaces []interface{}
 	list.Each(func(element *{{ .Name }}) {
@@ -175,35 +194,12 @@ func (list {{ .Name }}List) AsInterfaces() []interface{}{
 	return asInterfaces
 }
 
-func (byNamespace {{ upper_camel .PluralName }}ByNamespace) Add({{ lower_camel .Name }} ... *{{ .Name }}) {
-	for _, item := range {{ lower_camel .Name }} {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
-	}
-}
-
-func (byNamespace {{ upper_camel .PluralName }}ByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace {{ upper_camel .PluralName }}ByNamespace) List() {{ .Name }}List {
-	var list {{ .Name }}List
-	for _, {{ lower_camel .Name }}List := range byNamespace {
-		list = append(list, {{ lower_camel .Name }}List...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace {{ upper_camel .PluralName }}ByNamespace) Clone() {{ upper_camel .PluralName }}ByNamespace {
-	cloned := make({{ upper_camel .PluralName }}ByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
+{{- $crdGroupName := .Project.ProtoPackage }}
+{{- if ne .Project.ProjectConfig.CrdGroupOverride "" }}
+{{- $crdGroupName = .Project.ProjectConfig.CrdGroupOverride }}
+{{- end}}
 
 {{- if not $.IsCustom }}
-
-var _ resources.Resource = &{{ .Name }}{}
 
 // Kubernetes Adapter for {{ .Name }}
 
@@ -216,19 +212,31 @@ func (o *{{ .Name }}) DeepCopyObject() runtime.Object {
 	return resources.Clone(o).(*{{ .Name }})
 }
 
-{{- $crdGroupName := .Project.ProtoPackage }}
-{{- if ne .Project.ProjectConfig.CrdGroupOverride "" }}
-{{- $crdGroupName = .Project.ProjectConfig.CrdGroupOverride }}
+
+var (
+	{{ .Name }}Crd = crd.NewCrd(
+		"{{ lowercase (upper_camel .PluralName) }}",
+		{{ .Name }}GVK.Group,
+		{{ .Name }}GVK.Version,
+		{{ .Name }}GVK.Kind,
+		"{{ .ShortName }}",
+		{{ .ClusterScoped }},
+		&{{ .Name }}{})
+)
+
+func init() {
+	if err := crd.AddCrd({{ .Name }}Crd); err != nil {
+		log.Fatalf("could not add crd to global registry")
+	}
+}
+
 {{- end}}
 
-var {{ .Name }}Crd = crd.NewCrd("{{ $crdGroupName }}",
-	"{{ lowercase (upper_camel .PluralName) }}",
-	"{{ $crdGroupName }}",
-	"{{ .Project.ProjectConfig.Version }}",
-	"{{ .Name }}",
-	"{{ .ShortName }}",
-	{{ .ClusterScoped }},
-	&{{ .Name }}{})
-
-{{- end}}
+var (
+	{{ .Name }}GVK = schema.GroupVersionKind{
+		Version: "{{ .Project.ProjectConfig.Version }}",
+		Group: "{{ $crdGroupName }}",
+		Kind: "{{ .Name }}",
+	}
+)
 `))

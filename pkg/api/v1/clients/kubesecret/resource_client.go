@@ -20,10 +20,21 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+type ResourceClient struct {
+	cache cache.KubeCoreCache
+	Kube  kubernetes.Interface
+	common.KubeCoreResourceClient
+	ownerLabel   string
+	resourceName string
+	// should we marshal/unmarshal these secrets assuming their structure is map[string]string ?
+	// custom logic to convert the secret to a resource
+	secretConverter SecretConverter
+}
+
 const annotationKey = "resource_kind"
 
 var (
-	NotOurResource error = fmt.Errorf("not kube secret resource")
+	NotOurResource = fmt.Errorf("not kube secret resource")
 )
 
 func (rc *ResourceClient) FromKubeSecret(secret *v1.Secret) (resources.Resource, error) {
@@ -85,15 +96,6 @@ func (rc *ResourceClient) ToKubeSecret(ctx context.Context, resource resources.R
 	}, nil
 }
 
-type ResourceClient struct {
-	common.KubeCoreResourceClient
-	ownerLabel   string
-	resourceName string
-	// should we marshal/unmarshal these secrets assuming their structure is map[string]string ?
-	// custom logic to convert the secret to a resource
-	secretConverter SecretConverter
-}
-
 func NewResourceClient(kube kubernetes.Interface, resourceType resources.Resource, plainSecrets bool, kubeCache cache.KubeCoreCache) (*ResourceClient, error) {
 	var sc SecretConverter
 	if plainSecrets {
@@ -103,11 +105,10 @@ func NewResourceClient(kube kubernetes.Interface, resourceType resources.Resourc
 }
 
 func NewResourceClientWithSecretConverter(kube kubernetes.Interface, resourceType resources.Resource, kubeCache cache.KubeCoreCache, sc SecretConverter) (*ResourceClient, error) {
-
 	return &ResourceClient{
+		cache: kubeCache,
+		Kube:  kube,
 		KubeCoreResourceClient: common.KubeCoreResourceClient{
-			Kube:         kube,
-			Cache:        kubeCache,
 			ResourceType: resourceType,
 		},
 		resourceName:    reflect.TypeOf(resourceType).String(),
@@ -210,7 +211,10 @@ func (rc *ResourceClient) Delete(namespace, name string, opts clients.DeleteOpts
 func (rc *ResourceClient) List(namespace string, opts clients.ListOpts) (resources.ResourceList, error) {
 	opts = opts.WithDefaults()
 
-	secretList, err := rc.Cache.SecretLister().Secrets(namespace).List(labels.SelectorFromSet(opts.Selector))
+	if rc.cache.NamespacedSecretLister(namespace) == nil {
+		return nil, errors.Errorf("namespaces is not watched")
+	}
+	secretList, err := rc.cache.NamespacedSecretLister(namespace).List(labels.SelectorFromSet(opts.Selector))
 	if err != nil {
 		return nil, errors.Wrapf(err, "listing secrets in %v", namespace)
 	}
@@ -247,7 +251,7 @@ func (rc *ResourceClient) fromKubeResource(ctx context.Context, secret *v1.Secre
 }
 
 func (rc *ResourceClient) Watch(namespace string, opts clients.WatchOpts) (<-chan resources.ResourceList, <-chan error, error) {
-	return common.KubeResourceWatch(rc.Cache, rc.List, namespace, opts)
+	return common.KubeResourceWatch(rc.cache, rc.List, namespace, opts)
 }
 
 func (rc *ResourceClient) exist(namespace, name string) bool {

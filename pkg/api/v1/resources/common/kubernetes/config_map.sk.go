@@ -11,6 +11,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/pkg/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func NewConfigMap(namespace, name string) *ConfigMap {
@@ -49,8 +50,11 @@ func (r *ConfigMap) Hash() uint64 {
 	return hashutils.HashAll(clone)
 }
 
+func (r *ConfigMap) GroupVersionKind() schema.GroupVersionKind {
+	return ConfigMapGVK
+}
+
 type ConfigMapList []*ConfigMap
-type ConfigmapsByNamespace map[string]ConfigMapList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list ConfigMapList) Find(namespace, name string) (*ConfigMap, error) {
@@ -109,6 +113,12 @@ func (list ConfigMapList) Each(f func(element *ConfigMap)) {
 	}
 }
 
+func (list ConfigMapList) EachResource(f func(element resources.Resource)) {
+	for _, configMap := range list {
+		f(configMap)
+	}
+}
+
 func (list ConfigMapList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *ConfigMap) {
@@ -117,28 +127,10 @@ func (list ConfigMapList) AsInterfaces() []interface{} {
 	return asInterfaces
 }
 
-func (byNamespace ConfigmapsByNamespace) Add(configMap ...*ConfigMap) {
-	for _, item := range configMap {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
+var (
+	ConfigMapGVK = schema.GroupVersionKind{
+		Version: "kubernetes",
+		Group:   "kubernetes.solo.io",
+		Kind:    "ConfigMap",
 	}
-}
-
-func (byNamespace ConfigmapsByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace ConfigmapsByNamespace) List() ConfigMapList {
-	var list ConfigMapList
-	for _, configMapList := range byNamespace {
-		list = append(list, configMapList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace ConfigmapsByNamespace) Clone() ConfigmapsByNamespace {
-	cloned := make(ConfigmapsByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
+)

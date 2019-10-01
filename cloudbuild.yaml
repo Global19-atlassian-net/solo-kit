@@ -34,7 +34,7 @@ steps:
 
 
   # Installs go executables required by codegen tests
-  - name: 'gcr.io/$PROJECT_ID/go-make:0.1.7'
+  - name: 'gcr.io/$PROJECT_ID/go-make:0.1.12'
     args: ['install-codegen-deps']
     waitFor: ['dep']
     dir: './gopath/src/github.com/solo-io/solo-kit'
@@ -43,7 +43,7 @@ steps:
       - 'GOPATH=/workspace/gopath'
 
   # check code gen for kubernetes custom resources, should be no diff
-  - name: 'gcr.io/$PROJECT_ID/go-make:0.1.7'
+  - name: 'gcr.io/$PROJECT_ID/go-make:0.1.12'
     entrypoint: 'bash'
     args: ['ci/check-code-gen.sh']
     env:
@@ -64,10 +64,12 @@ steps:
       - 'CLOUDSDK_COMPUTE_ZONE=us-central1-b'
       - 'CLOUDSDK_CONTAINER_CLUSTER=solo-kit-test'
       - 'RUN_KUBE_TESTS=1'
+      - 'RUN_CONSUL_TESTS=1'
+      - 'RUN_VAULT_TESTS=1'
       - 'SKIP_MOCK_GEN=1'
       - 'CLOUD_BUILD=1'
       - 'GOPATH=/workspace/gopath'
-    args: ['-r', '-v', '-p', '-tags', 'solokit']
+    args: ['-r', '-v', '-race', '-p', '-tags', 'solokit']
     id: 'test'
     waitFor: ['check-code-and-docs-gen']
 

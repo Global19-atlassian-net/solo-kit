@@ -19,14 +19,16 @@ import (
 )
 
 type namespaceResourceClient struct {
+	cache cache.KubeCoreCache
+	Kube  kubernetes.Interface
 	common.KubeCoreResourceClient
 }
 
 func newResourceClient(kube kubernetes.Interface, cache cache.KubeCoreCache) *namespaceResourceClient {
 	return &namespaceResourceClient{
+		cache: cache,
+		Kube:  kube,
 		KubeCoreResourceClient: common.KubeCoreResourceClient{
-			Kube:         kube,
-			Cache:        cache,
 			ResourceType: &skkube.KubeNamespace{},
 		},
 	}
@@ -136,12 +138,16 @@ func (rc *namespaceResourceClient) Delete(namespace, name string, opts clients.D
 func (rc *namespaceResourceClient) List(namespace string, opts clients.ListOpts) (resources.ResourceList, error) {
 	opts = opts.WithDefaults()
 
-	podObjList, err := rc.Cache.NamespaceLister().List(labels.SelectorFromSet(opts.Selector))
+	if rc.cache.NamespaceLister() == nil {
+		return nil, errors.New("to list namespaces you must watch all namespaces")
+	}
+
+	namespaceObjList, err := rc.cache.NamespaceLister().List(labels.SelectorFromSet(opts.Selector))
 	if err != nil {
-		return nil, errors.Wrapf(err, "listing pods level")
+		return nil, errors.Wrapf(err, "listing namespaces level")
 	}
 	var resourceList resources.ResourceList
-	for _, namespaceObj := range podObjList {
+	for _, namespaceObj := range namespaceObjList {
 		resource := FromKubeNamespace(namespaceObj)
 
 		if resource == nil {
@@ -158,7 +164,7 @@ func (rc *namespaceResourceClient) List(namespace string, opts clients.ListOpts)
 }
 
 func (rc *namespaceResourceClient) Watch(namespace string, opts clients.WatchOpts) (<-chan resources.ResourceList, <-chan error, error) {
-	return common.KubeResourceWatch(rc.Cache, rc.List, namespace, opts)
+	return common.KubeResourceWatch(rc.cache, rc.List, namespace, opts)
 }
 
 func (rc *namespaceResourceClient) exist(namespace, name string) bool {

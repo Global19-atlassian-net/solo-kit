@@ -13,7 +13,24 @@ import (
 	"github.com/solo-io/solo-kit/pkg/code-generator/model"
 )
 
-func ProcessDescriptors(projectConfig model.ProjectConfig, descriptors []*descriptor.FileDescriptorProto) (*model.Project, error) {
+type ProjectMap map[*model.ProjectConfig]*model.Project
+
+func ProcessDescriptorsFromConfigs(projectConfigs []*model.ProjectConfig, protoDescriptors []*descriptor.FileDescriptorProto) (ProjectMap, error) {
+	projectMap := make(ProjectMap)
+	for _, projectConfig := range projectConfigs {
+		project, err := ProcessDescriptorsFromConfig(projectConfig, projectConfigs, protoDescriptors)
+		if err != nil {
+			return nil, err
+		}
+		projectMap[projectConfig] = project
+	}
+	return projectMap, nil
+}
+
+// Build a 'Project' object that contains a resource for each message that:
+// - is contained in the FileDescriptor and
+// - is a solo kit resource (i.e. it has a field named 'metadata')
+func ProcessDescriptorsFromConfig(projectConfig *model.ProjectConfig, allProjectConfigs []*model.ProjectConfig, descriptors []*descriptor.FileDescriptorProto) (*model.Project, error) {
 	req := &plugin_go.CodeGeneratorRequest{}
 	for _, file := range descriptors {
 		var added bool
@@ -28,10 +45,10 @@ func ProcessDescriptors(projectConfig model.ProjectConfig, descriptors []*descri
 		req.FileToGenerate = append(req.FileToGenerate, file.GetName())
 		req.ProtoFile = append(req.ProtoFile, file)
 	}
-	return parseRequest(projectConfig, req)
+	return parseRequest(projectConfig, allProjectConfigs, req)
 }
 
-func parseRequest(projectConfig model.ProjectConfig, req *plugin_go.CodeGeneratorRequest) (*model.Project, error) {
+func parseRequest(projectConfig *model.ProjectConfig, allProjectConfigs []*model.ProjectConfig, req *plugin_go.CodeGeneratorRequest) (*model.Project, error) {
 	log.Printf("project config: %v", projectConfig)
 
 	descriptors := protokit.ParseCodeGenRequest(req)
@@ -55,11 +72,12 @@ func parseRequest(projectConfig model.ProjectConfig, req *plugin_go.CodeGenerato
 	}
 
 	project := &model.Project{
-		ProjectConfig: projectConfig,
+		ProjectConfig: *projectConfig,
 		ProtoPackage:  projectConfig.Name,
 		Request:       req,
+		Descriptors:   descriptors,
 	}
-	resources, resourceGroups, err := getResources(project, messages)
+	resources, resourceGroups, err := getResources(project, allProjectConfigs, messages)
 	if err != nil {
 		return nil, err
 	}

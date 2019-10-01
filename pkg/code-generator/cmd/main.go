@@ -33,7 +33,57 @@ const (
 )
 
 func Run(relativeRoot string, compileProtos bool, genDocs *DocsOptions, customImports, skipDirs []string) error {
+	return Generate(GenerateOptions{
+		RelativeRoot:  relativeRoot,
+		CompileProtos: compileProtos,
+		GenDocs:       genDocs,
+		CustomImports: customImports,
+		SkipDirs:      skipDirs,
+		SkipGenMocks:  os.Getenv(SkipMockGen) != "",
+	})
+}
+
+type GenerateOptions struct {
+	RelativeRoot string
+	// compile protos found in project directories (dirs with solo-kit.json) and their subdirs
+	CompileProtos bool
+	// compile protos found in these directories. can also point directly to .proto files
+	CustomCompileProtos []string
+	GenDocs             *DocsOptions
+	CustomImports       []string
+	SkipDirs            []string
+	// arguments for gogo_out=
+	CustomGogoOutArgs []string
+	// skip generated mocks
+	SkipGenMocks bool
+	// skip generated tests
+	SkipGeneratedTests bool
+}
+
+type DescriptorWithPath struct {
+	*descriptor.FileDescriptorProto
+
+	ProtoFilePath string
+}
+
+func Generate(opts GenerateOptions) error {
+	relativeRoot := opts.RelativeRoot
+	compileProtos := opts.CompileProtos
+	genDocs := opts.GenDocs
+	customImports := opts.CustomImports
+	customGogoArgs := opts.CustomGogoOutArgs
+	skipDirs := opts.SkipDirs
 	skipDirs = append(skipDirs, "vendor/")
+
+	var customCompilePrefixes []string
+	for _, relativePath := range opts.CustomCompileProtos {
+		abs, err := filepath.Abs(relativePath)
+		if err != nil {
+			return err
+		}
+		customCompilePrefixes = append(customCompilePrefixes, abs)
+	}
+
 	absoluteRoot, err := filepath.Abs(relativeRoot)
 	if err != nil {
 		return err
@@ -57,6 +107,11 @@ func Run(relativeRoot string, compileProtos bool, genDocs *DocsOptions, customIm
 
 	// whether or not to do a regular gogo-proto generate while collecting descriptors
 	compileProto := func(protoFile string) bool {
+		for _, customCompilePrefix := range customCompilePrefixes {
+			if strings.HasPrefix(protoFile, customCompilePrefix) {
+				return true
+			}
+		}
 		if !compileProtos {
 			return false
 		}
@@ -69,7 +124,7 @@ func Run(relativeRoot string, compileProtos bool, genDocs *DocsOptions, customIm
 	}
 
 	// Create a FileDescriptorProto for all the proto files under 'absoluteRoot' and each of the 'customImports' paths
-	descriptors, err := collectDescriptorsFromRoot(absoluteRoot, customImports, skipDirs, compileProto)
+	descriptors, err := collectDescriptorsFromRoot(absoluteRoot, customImports, customGogoArgs, skipDirs, compileProto)
 	if err != nil {
 		return err
 	}
@@ -84,6 +139,7 @@ func Run(relativeRoot string, compileProtos bool, genDocs *DocsOptions, customIm
 		return names
 	}())
 
+	var protoDescriptors []*descriptor.FileDescriptorProto
 	for _, projectConfig := range projectConfigs {
 		importedResources, err := importCustomResources(projectConfig.Imports)
 		if err != nil {
@@ -92,34 +148,27 @@ func Run(relativeRoot string, compileProtos bool, genDocs *DocsOptions, customIm
 
 		projectConfig.CustomResources = append(projectConfig.CustomResources, importedResources...)
 
-		// Build a 'Project' object that contains a resource for each message that:
-		// - is contained in the FileDescriptor and
-		// - is a solo kit resource (i.e. it has a field named 'metadata')
-		project, err := parser.ProcessDescriptors(projectConfig, descriptors)
+		for _, desc := range descriptors {
+			if filepath.Dir(desc.ProtoFilePath) == filepath.Dir(projectConfig.ProjectFile) {
+				projectConfig.ProjectProtos = append(projectConfig.ProjectProtos, desc.GetName())
+			}
+			protoDescriptors = append(protoDescriptors, desc.FileDescriptorProto)
+		}
+	}
+
+	projectMap, err := parser.ProcessDescriptorsFromConfigs(projectConfigs, protoDescriptors)
+	if err != nil {
+		return err
+	}
+
+	for _, project := range projectMap {
+		code, err := codegen.GenerateFiles(project, true, opts.SkipGeneratedTests)
 		if err != nil {
 			return err
 		}
 
-		code, err := codegen.GenerateFiles(project, true)
-		if err != nil {
+		if err := docgen.WritePerProjectsDocs(project, genDocs, absoluteRoot); err != nil {
 			return err
-		}
-
-		if project.ProjectConfig.DocsDir != "" && (genDocs != nil) {
-			docs, err := docgen.GenerateFiles(project, genDocs)
-			if err != nil {
-				return err
-			}
-
-			for _, file := range docs {
-				path := filepath.Join(absoluteRoot, project.ProjectConfig.DocsDir, file.Filename)
-				if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
-					return err
-				}
-				if err := ioutil.WriteFile(path, []byte(file.Content), 0644); err != nil {
-					return err
-				}
-			}
 		}
 
 		outDir := filepath.Join(gopathSrc(), project.ProjectConfig.GoPackage)
@@ -144,11 +193,14 @@ func Run(relativeRoot string, compileProtos bool, genDocs *DocsOptions, customIm
 		// Generate mocks
 		// need to run after to make sure all resources have already been written
 		// Set this env var during tests so that mocks are not generated
-		if os.Getenv(SkipMockGen) != "1" {
+		if !opts.SkipGenMocks {
 			if err := genMocks(code, outDir, absoluteRoot); err != nil {
 				return err
 			}
 		}
+	}
+	if err := docgen.WriteCrossProjectDocs(genDocs, absoluteRoot, projectMap); err != nil {
+		return err
 	}
 
 	return nil
@@ -159,6 +211,12 @@ var (
 		"_client",
 		"_reconciler",
 		"_emitter",
+		"_event_loop",
+	}
+
+	invalidMockingInterface = []string{
+		"_simple_event_loop",
+		"_test",
 	}
 )
 
@@ -176,7 +234,7 @@ func genMocks(code code_generator.Files, outDir, absoluteRoot string) error {
 }
 
 func genMockForFile(file code_generator.File, outDir, absoluteRoot string) ([]byte, error) {
-	if strings.Contains(file.Filename, "_test") || !containsAny(file.Filename, validMockingInterfaces) {
+	if containsAny(file.Filename, invalidMockingInterface) || !containsAny(file.Filename, validMockingInterfaces) {
 		return nil, nil
 	}
 	path := filepath.Join(outDir, file.Filename)
@@ -199,8 +257,8 @@ func gopathSrc() string {
 	return filepath.Join(os.Getenv("GOPATH"), "src")
 }
 
-func collectProjectsFromRoot(root string, skipDirs []string) ([]model.ProjectConfig, error) {
-	var projects []model.ProjectConfig
+func collectProjectsFromRoot(root string, skipDirs []string) ([]*model.ProjectConfig, error) {
+	var projects []*model.ProjectConfig
 
 	if err := filepath.Walk(root, func(projectFile string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -224,7 +282,7 @@ func collectProjectsFromRoot(root string, skipDirs []string) ([]model.ProjectCon
 		if err != nil {
 			return err
 		}
-		projects = append(projects, project)
+		projects = append(projects, &project)
 		return nil
 	}); err != nil {
 		return nil, err
@@ -232,7 +290,7 @@ func collectProjectsFromRoot(root string, skipDirs []string) ([]model.ProjectCon
 	return projects, nil
 }
 
-func addDescriptorsForFile(addDescriptor func(f *descriptor.FileDescriptorProto), root, protoFile string, customImports []string, wantCompile func(string) bool) error {
+func addDescriptorsForFile(addDescriptor func(f DescriptorWithPath), root, protoFile string, customImports, customGogoArgs []string, wantCompile func(string) bool) error {
 	log.Printf("processing proto file input %v", protoFile)
 	imports, err := importsForProtoFile(root, protoFile, customImports)
 	if err != nil {
@@ -254,7 +312,7 @@ func addDescriptorsForFile(addDescriptor func(f *descriptor.FileDescriptorProto)
 	}
 	defer os.Remove(tmpFile.Name())
 
-	if err := writeDescriptors(protoFile, tmpFile.Name(), imports, compile); err != nil {
+	if err := writeDescriptors(protoFile, tmpFile.Name(), imports, customGogoArgs, compile); err != nil {
 		return errors.Wrapf(err, "writing descriptors")
 	}
 	desc, err := readDescriptors(tmpFile.Name())
@@ -263,31 +321,37 @@ func addDescriptorsForFile(addDescriptor func(f *descriptor.FileDescriptorProto)
 	}
 
 	for _, f := range desc.File {
-		addDescriptor(f)
+		descriptorWithPath := DescriptorWithPath{FileDescriptorProto: f}
+		if strings.HasSuffix(protoFile, f.GetName()) {
+			descriptorWithPath.ProtoFilePath = protoFile
+		}
+		addDescriptor(descriptorWithPath)
 	}
 
 	return nil
 }
 
-func collectDescriptorsFromRoot(root string, customImports, skipDirs []string, wantCompile func(string) bool) ([]*descriptor.FileDescriptorProto, error) {
-	var descriptors []*descriptor.FileDescriptorProto
+func collectDescriptorsFromRoot(root string, customImports, customGogoArgs, skipDirs []string, wantCompile func(string) bool) ([]*DescriptorWithPath, error) {
+	var descriptors []*DescriptorWithPath
 	var mutex sync.Mutex
-	addDescriptor := func(f *descriptor.FileDescriptorProto) {
+	addDescriptor := func(f DescriptorWithPath) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		// don't add the same proto twice, this avoids the issue where a dependency is imported multiple times
 		// with different import paths
 		for _, existing := range descriptors {
-			if existing.GetName() == f.GetName() {
-				return
-			}
-			existingCopy := proto.Clone(existing).(*descriptor.FileDescriptorProto)
+			existingCopy := proto.Clone(existing.FileDescriptorProto).(*descriptor.FileDescriptorProto)
 			existingCopy.Name = f.Name
-			if proto.Equal(existingCopy, f) {
+			if proto.Equal(existingCopy, f.FileDescriptorProto) {
+				// if this proto file first came in as an import, but later as a solo-kit project proto,
+				// ensure the original proto gets updated with the correct proto file path
+				if existing.ProtoFilePath == "" {
+					existing.ProtoFilePath = f.ProtoFilePath
+				}
 				return
 			}
 		}
-		descriptors = append(descriptors, f)
+		descriptors = append(descriptors, &f)
 	}
 	var g errgroup.Group
 	for _, dir := range append([]string{root}, customImports...) {
@@ -309,7 +373,7 @@ func collectDescriptorsFromRoot(root string, customImports, skipDirs []string, w
 
 			// parallelize parsing the descriptors as each one requires file i/o and is slow
 			g.Go(func() error {
-				return addDescriptorsForFile(addDescriptor, absoluteDir, protoFile, customImports, wantCompile)
+				return addDescriptorsForFile(addDescriptor, absoluteDir, protoFile, customImports, customGogoArgs, wantCompile)
 			})
 			return nil
 		})
@@ -420,23 +484,29 @@ func findImportRelativeToRoot(absoluteRoot, importedProtoFile string, customImpo
 
 }
 
-func writeDescriptors(protoFile, toFile string, imports []string, compileProtos bool) error {
+var defaultGogoArgs = []string{
+	"plugins=grpc",
+	"Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor",
+	"Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types",
+	"Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types",
+	"Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types",
+	"Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types",
+	"Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types",
+	"Menvoy/api/v2/discovery.proto=github.com/envoyproxy/go-control-plane/envoy/api/v2",
+}
+
+func writeDescriptors(protoFile, toFile string, imports, gogoArgs []string, compileProtos bool) error {
 	cmd := exec.Command("protoc")
 	for i := range imports {
 		imports[i] = "-I" + imports[i]
 	}
 	cmd.Args = append(cmd.Args, imports...)
 
+	gogoArgs = append(defaultGogoArgs, gogoArgs...)
+
 	if compileProtos {
 		cmd.Args = append(cmd.Args,
-			"--gogo_out=plugins=grpc,"+
-				"Mgoogle/protobuf/descriptor.proto=github.com/gogo/protobuf/protoc-gen-gogo/descriptor,"+
-				"Mgoogle/protobuf/any.proto=github.com/gogo/protobuf/types,"+
-				"Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,"+
-				"Mgoogle/protobuf/struct.proto=github.com/gogo/protobuf/types,"+
-				"Mgoogle/protobuf/duration.proto=github.com/gogo/protobuf/types,"+
-				"Menvoy/api/v2/discovery.proto=github.com/envoyproxy/go-control-plane/envoy/api/v2"+
-				":"+gopathSrc())
+			"--gogo_out="+strings.Join(gogoArgs, ",")+":"+gopathSrc())
 	}
 
 	cmd.Args = append(cmd.Args, "-o"+toFile, "--include_imports", "--include_source_info",

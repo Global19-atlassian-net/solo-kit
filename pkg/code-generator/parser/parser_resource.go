@@ -34,43 +34,42 @@ type ProtoMessageWrapper struct {
 	Message   *protokit.Descriptor
 }
 
-// note (ilackarms): this function supports the deprecated method of using magic comments to declare resource groups.
-// this will be removed in a future release of solo kit
-func resourceGroupsFromMessages(messages []ProtoMessageWrapper) map[string][]model.ResourceConfig {
-	resourceGroupsCfg := make(map[string][]model.ResourceConfig)
-	for _, msg := range messages {
-		comments := strings.Split(msg.Message.GetComments().Leading, "\n")
-		// optional flags
-		joinedResourceGroups, _ := getCommentValue(comments, resourceGroupsDeclaration)
-		resourceGroups := strings.Split(joinedResourceGroups, ",")
-		for _, rgName := range resourceGroups {
-			if rgName == "" {
-				continue
+func getResource(resources []*model.Resource, project model.ProjectConfig, cfg model.ResourceConfig) (*model.Resource, error) {
+	matches := func(res *model.Resource) bool {
+		if res.Name == cfg.ResourceName &&
+			(res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage) {
+			if cfg.ResourceVersion == "" {
+				return true
 			}
-			resourceGroupsCfg[rgName] = append(resourceGroupsCfg[rgName], model.ResourceConfig{
-				ResourceName:    msg.Message.GetName(),
-				ResourcePackage: msg.Message.GetPackage(),
-			})
+			return cfg.ResourceVersion == res.Version
+		}
+		return false
+	}
+
+	// collect all resources that match on package and name
+	var possibleResources []*model.Resource
+	for _, res := range resources {
+		if matches(res) {
+			possibleResources = append(possibleResources, res)
 		}
 	}
-	return resourceGroupsCfg
-}
-
-func getResource(resources []*model.Resource, cfg model.ResourceConfig) (*model.Resource, error) {
-	for _, res := range resources {
-		if res.Name == cfg.ResourceName && (res.ProtoPackage == cfg.ResourcePackage || res.GoPackage == cfg.ResourcePackage) {
+	switch len(possibleResources) {
+	case 1:
+		return possibleResources[0], nil
+	case 0:
+		return nil, errors.Errorf("getting resource: message %v not found", cfg)
+	}
+	// default to using the version matching the project itself
+	// only works for this project's resources
+	for _, res := range possibleResources {
+		if res.GoPackage == project.GoPackage {
 			return res, nil
 		}
 	}
-	return nil, errors.Errorf("getting resource: message %v not found", cfg)
+	return nil, errors.Errorf("found %v resources found which match %v, try specifying a version", len(possibleResources), cfg)
 }
 
-func getResources(project *model.Project, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
-	// legacy behavior (deprecated): if resource groups are not specified, search through protos for
-	// resourceGroupsDeclaration
-	if len(project.ProjectConfig.ResourceGroups) == 0 {
-		project.ProjectConfig.ResourceGroups = resourceGroupsFromMessages(messages)
-	}
+func getResources(project *model.Project, allProjectConfigs []*model.ProjectConfig, messages []ProtoMessageWrapper) ([]*model.Resource, []*model.ResourceGroup, error) {
 	var (
 		resources []*model.Resource
 	)
@@ -83,6 +82,12 @@ func getResources(project *model.Project, messages []ProtoMessageWrapper) ([]*mo
 			// not a solo-kit resource, ignore
 			continue
 		}
+		for _, projectCfg := range allProjectConfigs {
+			if projectCfg.IsOurProto(resource.Filename) {
+				resource.Version = projectCfg.Version
+				break
+			}
+		}
 		resource.Project = project
 		resources = append(resources, resource)
 	}
@@ -92,16 +97,17 @@ func getResources(project *model.Project, messages []ProtoMessageWrapper) ([]*mo
 		impPrefix = strings.Replace(impPrefix, ".", "_", -1)
 		impPrefix = strings.Replace(impPrefix, "-", "_", -1)
 		resources = append(resources, &model.Resource{
-			Name:               custom.Type,
-			ShortName:          custom.ShortName,
-			PluralName:         custom.PluralName,
-			GoPackage:          custom.Package,
-			ClusterScoped:      custom.ClusterScoped,
-			CustomImportPrefix: impPrefix,
-			SkipDocsGen:        true,
-			Project:            project,
-			IsCustom:           true,
-			CustomResource:     custom,
+			Name:                   custom.Type,
+			ShortName:              custom.ShortName,
+			PluralName:             custom.PluralName,
+			GoPackage:              custom.Package,
+			ClusterScoped:          custom.ClusterScoped,
+			SkipHashingAnnotations: custom.SkipHashingAnnotations,
+			CustomImportPrefix:     impPrefix,
+			SkipDocsGen:            true,
+			Project:                project,
+			IsCustom:               true,
+			CustomResource:         custom,
 		})
 	}
 
@@ -112,13 +118,13 @@ func getResources(project *model.Project, messages []ProtoMessageWrapper) ([]*mo
 	for groupName, resourcesCfg := range project.ProjectConfig.ResourceGroups {
 		var resourcesForGroup []*model.Resource
 		for _, resourceCfg := range resourcesCfg {
-			resource, err := getResource(resources, resourceCfg)
+			resource, err := getResource(resources, project.ProjectConfig, resourceCfg)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			var importPrefix string
-			if resource.ProtoPackage != project.ProtoPackage && !resource.IsCustom {
+			if !project.ProjectConfig.IsOurProto(resource.Filename) && !resource.IsCustom {
 				importPrefix = resource.ProtoPackage
 			} else if resource.IsCustom && resource.CustomResource.Imported {
 				// If is custom resource from a different project use import prefix
@@ -145,7 +151,7 @@ func getResources(project *model.Project, messages []ProtoMessageWrapper) ([]*mo
 		imports := make(map[string]string)
 		for _, res := range rg.Resources {
 			// only generate files for the resources in our group, otherwise we import
-			if res.ProtoPackage != rg.Project.ProtoPackage {
+			if res.GoPackage != rg.Project.ProjectConfig.GoPackage {
 				// add import
 				imports[strings.TrimSuffix(res.ImportPrefix, ".")] = res.GoPackage
 			}
@@ -188,8 +194,8 @@ func describeResource(messageWrapper ProtoMessageWrapper) (*model.Resource, erro
 
 	name := msg.GetName()
 	var (
-		shortName, pluralName      string
-		clusterScoped, skipDocsGen bool
+		shortName, pluralName                              string
+		clusterScoped, skipDocsGen, skipHashingAnnotations bool
 	)
 	resourceOpts, err := proto.GetExtension(msg.Options, core.E_Resource)
 	if err != nil {
@@ -215,6 +221,7 @@ func describeResource(messageWrapper ProtoMessageWrapper) (*model.Resource, erro
 		pluralName = res.PluralName
 		clusterScoped = res.ClusterScoped
 		skipDocsGen = res.SkipDocsGen
+		skipHashingAnnotations = res.SkipHashingAnnotations
 	}
 
 	// always make it upper camel
@@ -226,17 +233,18 @@ func describeResource(messageWrapper ProtoMessageWrapper) (*model.Resource, erro
 	oneofs := collectOneofs(msg)
 
 	return &model.Resource{
-		Name:          name,
-		ProtoPackage:  msg.GetPackage(),
-		GoPackage:     messageWrapper.GoPackage,
-		ShortName:     shortName,
-		PluralName:    pluralName,
-		HasStatus:     hasStatus,
-		Fields:        fields,
-		Oneofs:        oneofs,
-		ClusterScoped: clusterScoped,
-		SkipDocsGen:   skipDocsGen,
-		Filename:      msg.GetFile().GetName(),
-		Original:      msg,
+		Name:                   name,
+		ProtoPackage:           msg.GetPackage(),
+		GoPackage:              messageWrapper.GoPackage,
+		ShortName:              shortName,
+		PluralName:             pluralName,
+		HasStatus:              hasStatus,
+		Fields:                 fields,
+		Oneofs:                 oneofs,
+		ClusterScoped:          clusterScoped,
+		SkipHashingAnnotations: skipHashingAnnotations,
+		SkipDocsGen:            skipDocsGen,
+		Filename:               msg.GetFile().GetName(),
+		Original:               msg,
 	}, nil
 }

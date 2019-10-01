@@ -11,6 +11,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/pkg/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func NewPod(namespace, name string) *Pod {
@@ -49,8 +50,11 @@ func (r *Pod) Hash() uint64 {
 	return hashutils.HashAll(clone)
 }
 
+func (r *Pod) GroupVersionKind() schema.GroupVersionKind {
+	return PodGVK
+}
+
 type PodList []*Pod
-type PodsByNamespace map[string]PodList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list PodList) Find(namespace, name string) (*Pod, error) {
@@ -109,6 +113,12 @@ func (list PodList) Each(f func(element *Pod)) {
 	}
 }
 
+func (list PodList) EachResource(f func(element resources.Resource)) {
+	for _, pod := range list {
+		f(pod)
+	}
+}
+
 func (list PodList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *Pod) {
@@ -117,28 +127,10 @@ func (list PodList) AsInterfaces() []interface{} {
 	return asInterfaces
 }
 
-func (byNamespace PodsByNamespace) Add(pod ...*Pod) {
-	for _, item := range pod {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
+var (
+	PodGVK = schema.GroupVersionKind{
+		Version: "kubernetes",
+		Group:   "kubernetes.solo.io",
+		Kind:    "Pod",
 	}
-}
-
-func (byNamespace PodsByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace PodsByNamespace) List() PodList {
-	var list PodList
-	for _, podList := range byNamespace {
-		list = append(list, podList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace PodsByNamespace) Clone() PodsByNamespace {
-	cloned := make(PodsByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
+)

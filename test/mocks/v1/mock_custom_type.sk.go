@@ -11,6 +11,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/pkg/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func NewMockCustomType(namespace, name string) *MockCustomType {
@@ -49,8 +50,11 @@ func (r *MockCustomType) Hash() uint64 {
 	return hashutils.HashAll(clone)
 }
 
+func (r *MockCustomType) GroupVersionKind() schema.GroupVersionKind {
+	return MockCustomTypeGVK
+}
+
 type MockCustomTypeList []*MockCustomType
-type MctsByNamespace map[string]MockCustomTypeList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list MockCustomTypeList) Find(namespace, name string) (*MockCustomType, error) {
@@ -109,6 +113,12 @@ func (list MockCustomTypeList) Each(f func(element *MockCustomType)) {
 	}
 }
 
+func (list MockCustomTypeList) EachResource(f func(element resources.Resource)) {
+	for _, mockCustomType := range list {
+		f(mockCustomType)
+	}
+}
+
 func (list MockCustomTypeList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *MockCustomType) {
@@ -117,28 +127,10 @@ func (list MockCustomTypeList) AsInterfaces() []interface{} {
 	return asInterfaces
 }
 
-func (byNamespace MctsByNamespace) Add(mockCustomType ...*MockCustomType) {
-	for _, item := range mockCustomType {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
+var (
+	MockCustomTypeGVK = schema.GroupVersionKind{
+		Version: "v1",
+		Group:   "testing.solo.io",
+		Kind:    "MockCustomType",
 	}
-}
-
-func (byNamespace MctsByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace MctsByNamespace) List() MockCustomTypeList {
-	var list MockCustomTypeList
-	for _, mockCustomTypeList := range byNamespace {
-		list = append(list, mockCustomTypeList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace MctsByNamespace) Clone() MctsByNamespace {
-	cloned := make(MctsByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
+)

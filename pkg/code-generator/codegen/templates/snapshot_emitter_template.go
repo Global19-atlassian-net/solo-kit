@@ -27,41 +27,82 @@ import (
 
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients"
 	"github.com/solo-io/solo-kit/pkg/errors"
+	skstats "github.com/solo-io/solo-kit/pkg/stats"
+	
 	"github.com/solo-io/go-utils/errutils"
 )
 
+{{ $emitter_prefix := (print (snake .Name) "/emitter") }}
+{{ $resource_group := upper_camel .GoName }}
 var (
-	m{{ .GoName }}SnapshotIn  = stats.Int64("{{ .Name }}/snap_emitter/snap_in", "The number of snapshots in", "1")
-	m{{ .GoName }}SnapshotOut = stats.Int64("{{ .Name }}/snap_emitter/snap_out", "The number of snapshots out", "1")
+	// Deprecated. See m{{ $resource_group }}ResourcesIn
+	m{{ $resource_group }}SnapshotIn  = stats.Int64("{{ $emitter_prefix }}/snap_in", "Deprecated. Use {{ $emitter_prefix }}/resources_in. The number of snapshots in", "1")
+	
+	// metrics for emitter
+	m{{ $resource_group }}ResourcesIn = stats.Int64("{{ $emitter_prefix }}/resources_in", "The number of resource lists received on open watch channels", "1")
+	m{{ $resource_group }}SnapshotOut = stats.Int64("{{ $emitter_prefix }}/snap_out", "The number of snapshots out", "1")
+	m{{ $resource_group }}SnapshotMissed = stats.Int64("{{ $emitter_prefix }}/snap_missed", "The number of snapshots missed", "1")
 
+	// views for emitter
+	// deprecated: see {{ lower_camel .GoName }}ResourcesInView
 	{{ lower_camel .GoName }}snapshotInView = &view.View{
-		Name:        "{{ .Name }}_snap_emitter/snap_in",
-		Measure:     m{{ .GoName }}SnapshotIn,
-		Description: "The number of snapshots updates coming in",
+		Name:        "{{ $emitter_prefix }}/snap_in",
+		Measure:     m{{ $resource_group }}SnapshotIn,
+		Description: "Deprecated. Use {{ $emitter_prefix }}/resources_in. The number of snapshots updates coming in.",
 		Aggregation: view.Count(),
 		TagKeys:     []tag.Key{
 		},
 	}
+
+	{{ lower_camel .GoName }}ResourcesInView = &view.View{
+			Name:        "{{ $emitter_prefix }}/resources_in",
+			Measure:     m{{ $resource_group }}ResourcesIn,
+			Description: "The number of resource lists received on open watch channels",
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{
+				skstats.NamespaceKey,
+				skstats.ResourceKey,
+			},
+	}
 	{{ lower_camel .GoName }}snapshotOutView = &view.View{
-		Name:        "{{ .Name }}/snap_emitter/snap_out",
-		Measure:     m{{ .GoName }}SnapshotOut,
+		Name:        "{{ $emitter_prefix }}/snap_out",
+		Measure:     m{{ $resource_group }}SnapshotOut,
 		Description: "The number of snapshots updates going out",
 		Aggregation: view.Count(),
 		TagKeys:     []tag.Key{
 		},
 	}
+	{{ lower_camel .GoName }}snapshotMissedView = &view.View{
+			Name:        "{{ $emitter_prefix }}/snap_missed",
+			Measure:     m{{ $resource_group }}SnapshotMissed,
+			Description: "The number of snapshots updates going missed. this can happen in heavy load. missed snapshot will be re-tried after a second.",
+			Aggregation: view.Count(),
+			TagKeys:     []tag.Key{
+			},
+	}
+
+
 )
 
 func init() {
-	view.Register({{ lower_camel .GoName }}snapshotInView, {{ lower_camel .GoName }}snapshotOutView)
+	view.Register(
+		{{ lower_camel .GoName }}snapshotInView, 
+		{{ lower_camel .GoName }}snapshotOutView, 
+		{{ lower_camel .GoName }}snapshotMissedView,
+		{{ lower_camel .GoName }}ResourcesInView,
+	)
+}
+
+type {{ .GoName }}SnapshotEmitter interface {
+	Snapshots(watchNamespaces []string, opts clients.WatchOpts) (<-chan *{{ .GoName }}Snapshot, <-chan error, error)
 }
 
 type {{ .GoName }}Emitter interface {
+	{{ .GoName }}SnapshotEmitter
 	Register() error
 {{- range .Resources}}
 	{{ .Name }}() {{ .ImportPrefix }}{{ .Name }}Client
 {{- end}}
-	Snapshots(watchNamespaces []string, opts clients.WatchOpts) (<-chan *{{ .GoName }}Snapshot, <-chan error, error)
 }
 
 func New{{ .GoName }}Emitter({{ $client_declarations }}) {{ .GoName }}Emitter {
@@ -126,13 +167,24 @@ func (c *{{ lower_camel .GoName }}Emitter) Snapshots(watchNamespaces []string, o
 		namespace string
 	}
 	{{ lower_camel .Name }}Chan := make(chan {{ lower_camel .Name }}ListWithNamespace)
-{{- end }}
+
+	var initial{{ upper_camel .Name }}List {{ .ImportPrefix }}{{ .Name }}List{{- end }}
+
 {{- end}}
+
+	currentSnapshot := {{ .GoName }}Snapshot{}
 
 	for _, namespace := range watchNamespaces {
 {{- range .Resources}}
 {{- if (not .ClusterScoped) }}
 		/* Setup namespaced watch for {{ .Name }} */
+		{
+			{{ lower_camel .PluralName }}, err := c.{{ lower_camel .Name }}.List(namespace, clients.ListOpts{Ctx: opts.Ctx, Selector: opts.Selector})
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "initial {{ .Name }} list")
+			}
+			initial{{ upper_camel .Name }}List = append(initial{{ upper_camel .Name }}List, {{ lower_camel .PluralName }}...)
+		}
 		{{ lower_camel .Name }}NamespacesChan, {{ lower_camel .Name }}Errs, err := c.{{ lower_camel .Name }}.Watch(namespace, opts)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "starting {{ .Name }} watch")
@@ -146,7 +198,6 @@ func (c *{{ lower_camel .GoName }}Emitter) Snapshots(watchNamespaces []string, o
 
 {{- end }}
 {{- end}}
-
 
 		/* Watch for changes and update snapshot */
 		go func(namespace string) {
@@ -172,7 +223,11 @@ func (c *{{ lower_camel .GoName }}Emitter) Snapshots(watchNamespaces []string, o
 {{- range .Resources}}
 {{- if .ClusterScoped }}
 	/* Setup cluster-wide watch for {{ .Name }} */
-
+	var err error
+	currentSnapshot.{{ upper_camel .PluralName }},err = c.{{ lower_camel .Name }}.List(clients.ListOpts{Ctx: opts.Ctx, Selector: opts.Selector})
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "initial {{ .Name }} list")
+	}
 	{{ lower_camel .Name }}Chan, {{ lower_camel .Name }}Errs, err := c.{{ lower_camel .Name }}.Watch(opts)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "starting {{ .Name }} watch")
@@ -183,27 +238,44 @@ func (c *{{ lower_camel .GoName }}Emitter) Snapshots(watchNamespaces []string, o
 		errutils.AggregateErrs(ctx, errs, {{ lower_camel .Name }}Errs, "{{ lower_camel .PluralName }}")
 	}()
 
+{{- else }}
+	/* Initialize snapshot for {{ upper_camel .PluralName }} */
+	currentSnapshot.{{ upper_camel .PluralName }} = initial{{ upper_camel .Name }}List.Sort()
 {{- end }}
 {{- end}}
 
 	snapshots := make(chan *{{ .GoName }}Snapshot)
 	go func() {
-		originalSnapshot := {{ .GoName }}Snapshot{}
-		currentSnapshot := originalSnapshot.Clone()
+		// sent initial snapshot to kick off the watch
+		initialSnapshot := currentSnapshot.Clone()
+		snapshots <- &initialSnapshot
+
 		timer := time.NewTicker(time.Second * 1)
+		previousHash := currentSnapshot.Hash()
 		sync := func() {
-			if originalSnapshot.Hash() == currentSnapshot.Hash() {
+			currentHash := currentSnapshot.Hash()
+			if previousHash == currentHash {
 				return
 			}
 
-			stats.Record(ctx, m{{ .GoName }}SnapshotOut.M(1))
-			originalSnapshot = currentSnapshot.Clone()
 			sentSnapshot := currentSnapshot.Clone()
-			snapshots <- &sentSnapshot
+			select {
+			case snapshots <- &sentSnapshot:
+				stats.Record(ctx, m{{ $resource_group }}SnapshotOut.M(1))
+				previousHash = currentHash
+			default:
+				stats.Record(ctx, m{{ $resource_group }}SnapshotMissed.M(1))
+			}
 		}
 
+		{{- range .Resources}}
+		{{- if not .ClusterScoped }}
+				{{ lower_camel .PluralName }}ByNamespace := make(map[string]{{ .ImportPrefix }}{{ .Name }}List)
+		{{- end }}
+		{{- end }}
+
 		for {
-			record := func(){stats.Record(ctx, m{{ .GoName }}SnapshotIn.M(1))}
+			record := func(){stats.Record(ctx, m{{ $resource_group }}SnapshotIn.M(1))}
 			
 			select {
 			case <-timer.C:
@@ -220,15 +292,35 @@ func (c *{{ lower_camel .GoName }}Emitter) Snapshots(watchNamespaces []string, o
 {{- if .ClusterScoped }}
 			case {{ lower_camel .Name }}List := <- {{ lower_camel .Name }}Chan:
 				record()
+
+				skstats.IncrementResourceCount(
+					ctx,
+					"<all>",
+					"{{ snake .Name }}",
+					m{{ $resource_group }}ResourcesIn,
+				)
+
 				currentSnapshot.{{ upper_camel .PluralName }} = {{ lower_camel .Name }}List
 {{- else }}
 			case {{ lower_camel .Name }}NamespacedList := <- {{ lower_camel .Name }}Chan:
 				record()
 
 				namespace := {{ lower_camel .Name }}NamespacedList.namespace
-				{{ lower_camel .Name }}List := {{ lower_camel .Name }}NamespacedList.list
 
-				currentSnapshot.{{ upper_camel .PluralName }}[namespace] = {{ lower_camel .Name }}List
+				skstats.IncrementResourceCount(
+					ctx,
+					namespace,
+					"{{ snake .Name }}",
+					m{{ $resource_group }}ResourcesIn,
+				)
+
+				// merge lists by namespace
+				{{ lower_camel .PluralName }}ByNamespace[namespace] = {{ lower_camel .Name }}NamespacedList.list
+				var {{ lower_camel .Name }}List {{ .ImportPrefix }}{{ .Name }}List
+				for _, {{ lower_camel .PluralName }} := range {{ lower_camel .PluralName }}ByNamespace {
+					{{ lower_camel .Name }}List  = append({{ lower_camel .Name }}List, {{ lower_camel .PluralName }}...)
+				}
+				currentSnapshot.{{ upper_camel .PluralName }} = {{ lower_camel .Name }}List.Sort()
 {{- end }}
 {{- end}}
 			}

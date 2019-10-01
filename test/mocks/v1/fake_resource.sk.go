@@ -3,6 +3,7 @@
 package v1
 
 import (
+	"log"
 	"sort"
 
 	"github.com/solo-io/go-utils/hashutils"
@@ -30,14 +31,19 @@ func (r *FakeResource) SetMetadata(meta core.Metadata) {
 func (r *FakeResource) Hash() uint64 {
 	metaCopy := r.GetMetadata()
 	metaCopy.ResourceVersion = ""
+	metaCopy.Generation = 0
+	// investigate zeroing out owner refs as well
 	return hashutils.HashAll(
 		metaCopy,
 		r.Count,
 	)
 }
 
+func (r *FakeResource) GroupVersionKind() schema.GroupVersionKind {
+	return FakeResourceGVK
+}
+
 type FakeResourceList []*FakeResource
-type FakesByNamespace map[string]FakeResourceList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list FakeResourceList) Find(namespace, name string) (*FakeResource, error) {
@@ -96,6 +102,12 @@ func (list FakeResourceList) Each(f func(element *FakeResource)) {
 	}
 }
 
+func (list FakeResourceList) EachResource(f func(element resources.Resource)) {
+	for _, fakeResource := range list {
+		f(fakeResource)
+	}
+}
+
 func (list FakeResourceList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *FakeResource) {
@@ -103,34 +115,6 @@ func (list FakeResourceList) AsInterfaces() []interface{} {
 	})
 	return asInterfaces
 }
-
-func (byNamespace FakesByNamespace) Add(fakeResource ...*FakeResource) {
-	for _, item := range fakeResource {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
-	}
-}
-
-func (byNamespace FakesByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace FakesByNamespace) List() FakeResourceList {
-	var list FakeResourceList
-	for _, fakeResourceList := range byNamespace {
-		list = append(list, fakeResourceList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace FakesByNamespace) Clone() FakesByNamespace {
-	cloned := make(FakesByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
-
-var _ resources.Resource = &FakeResource{}
 
 // Kubernetes Adapter for FakeResource
 
@@ -143,11 +127,27 @@ func (o *FakeResource) DeepCopyObject() runtime.Object {
 	return resources.Clone(o).(*FakeResource)
 }
 
-var FakeResourceCrd = crd.NewCrd("crds.testing.solo.io",
-	"fakes",
-	"crds.testing.solo.io",
-	"v1",
-	"FakeResource",
-	"fk",
-	false,
-	&FakeResource{})
+var (
+	FakeResourceCrd = crd.NewCrd(
+		"fakes",
+		FakeResourceGVK.Group,
+		FakeResourceGVK.Version,
+		FakeResourceGVK.Kind,
+		"fk",
+		false,
+		&FakeResource{})
+)
+
+func init() {
+	if err := crd.AddCrd(FakeResourceCrd); err != nil {
+		log.Fatalf("could not add crd to global registry")
+	}
+}
+
+var (
+	FakeResourceGVK = schema.GroupVersionKind{
+		Version: "v1",
+		Group:   "testing.solo.io",
+		Kind:    "FakeResource",
+	}
+)

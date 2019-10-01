@@ -52,7 +52,7 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 		if !ok {
 			return nil, errors.Errorf("the kubernetes crd client can only be used for input resources, received type %v", resources.Kind(resourceType))
 		}
-		if opts.Crd.Type == nil {
+		if opts.Crd.Version.Type == nil {
 			return nil, errors.Errorf("must provide a crd for the kube resource client")
 		}
 		if opts.SharedCache == nil {
@@ -110,7 +110,11 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 		return clusterClient(client, opts.Cluster), nil
 
 	case *ConsulResourceClientFactory:
-		return consul.NewResourceClient(opts.Consul, opts.RootKey, resourceType), nil
+		versionedResource, ok := params.ResourceType.(resources.VersionedResource)
+		if !ok {
+			return nil, errors.Errorf("the consul storage client can only be used for resources which implement the resources.VersionedResource interface resources, received type %v", resources.Kind(resourceType))
+		}
+		return consul.NewResourceClient(opts.Consul, opts.RootKey, versionedResource), nil
 	case *FileResourceClientFactory:
 		return file.NewResourceClient(opts.RootDir, resourceType), nil
 	case *MemoryResourceClientFactory:
@@ -140,7 +144,11 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 		}
 		return clusterClient(client, opts.Cluster), nil
 	case *VaultSecretClientFactory:
-		return vault.NewResourceClient(opts.Vault, opts.RootKey, resourceType), nil
+		versionedResource, ok := params.ResourceType.(resources.VersionedResource)
+		if !ok {
+			return nil, errors.Errorf("the vault storage client can only be used for resources which implement the resources.VersionedResource interface resources, received type %v", resources.Kind(resourceType))
+		}
+		return vault.NewResourceClient(opts.Vault, opts.RootKey, versionedResource), nil
 	}
 	panic("unsupported type " + reflect.TypeOf(factory).Name())
 }

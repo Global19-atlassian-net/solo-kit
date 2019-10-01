@@ -4,12 +4,9 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/cache"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
-	"k8s.io/client-go/kubernetes"
 )
 
 type KubeCoreResourceClient struct {
-	Kube         kubernetes.Interface
-	Cache        cache.KubeCoreCache
 	ResourceType resources.Resource
 }
 
@@ -27,7 +24,7 @@ func (rc *KubeCoreResourceClient) Register() error {
 
 type ResourceListFunc func(namespace string, opts clients.ListOpts) (resources.ResourceList, error)
 
-func KubeResourceWatch(cache cache.KubeCoreCache, listFunc ResourceListFunc, namespace string,
+func KubeResourceWatch(cache cache.Cache, listFunc ResourceListFunc, namespace string,
 	opts clients.WatchOpts) (<-chan resources.ResourceList, <-chan error, error) {
 	opts = opts.WithDefaults()
 

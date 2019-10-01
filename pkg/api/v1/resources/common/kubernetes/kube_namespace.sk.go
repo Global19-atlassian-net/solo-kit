@@ -11,6 +11,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/pkg/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func NewKubeNamespace(namespace, name string) *KubeNamespace {
@@ -49,8 +50,11 @@ func (r *KubeNamespace) Hash() uint64 {
 	return hashutils.HashAll(clone)
 }
 
+func (r *KubeNamespace) GroupVersionKind() schema.GroupVersionKind {
+	return KubeNamespaceGVK
+}
+
 type KubeNamespaceList []*KubeNamespace
-type KubenamespacesByNamespace map[string]KubeNamespaceList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list KubeNamespaceList) Find(namespace, name string) (*KubeNamespace, error) {
@@ -109,6 +113,12 @@ func (list KubeNamespaceList) Each(f func(element *KubeNamespace)) {
 	}
 }
 
+func (list KubeNamespaceList) EachResource(f func(element resources.Resource)) {
+	for _, kubeNamespace := range list {
+		f(kubeNamespace)
+	}
+}
+
 func (list KubeNamespaceList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *KubeNamespace) {
@@ -117,28 +127,10 @@ func (list KubeNamespaceList) AsInterfaces() []interface{} {
 	return asInterfaces
 }
 
-func (byNamespace KubenamespacesByNamespace) Add(kubeNamespace ...*KubeNamespace) {
-	for _, item := range kubeNamespace {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
+var (
+	KubeNamespaceGVK = schema.GroupVersionKind{
+		Version: "kubernetes",
+		Group:   "kubernetes.solo.io",
+		Kind:    "KubeNamespace",
 	}
-}
-
-func (byNamespace KubenamespacesByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace KubenamespacesByNamespace) List() KubeNamespaceList {
-	var list KubeNamespaceList
-	for _, kubeNamespaceList := range byNamespace {
-		list = append(list, kubeNamespaceList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace KubenamespacesByNamespace) Clone() KubenamespacesByNamespace {
-	cloned := make(KubenamespacesByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
+)

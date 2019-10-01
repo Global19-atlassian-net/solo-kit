@@ -11,6 +11,7 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 	"github.com/solo-io/solo-kit/pkg/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func NewKubeConfig(namespace, name string) *KubeConfig {
@@ -49,8 +50,11 @@ func (r *KubeConfig) Hash() uint64 {
 	return hashutils.HashAll(clone)
 }
 
+func (r *KubeConfig) GroupVersionKind() schema.GroupVersionKind {
+	return KubeConfigGVK
+}
+
 type KubeConfigList []*KubeConfig
-type KubeconfigsByNamespace map[string]KubeConfigList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list KubeConfigList) Find(namespace, name string) (*KubeConfig, error) {
@@ -109,6 +113,12 @@ func (list KubeConfigList) Each(f func(element *KubeConfig)) {
 	}
 }
 
+func (list KubeConfigList) EachResource(f func(element resources.Resource)) {
+	for _, kubeConfig := range list {
+		f(kubeConfig)
+	}
+}
+
 func (list KubeConfigList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *KubeConfig) {
@@ -117,28 +127,10 @@ func (list KubeConfigList) AsInterfaces() []interface{} {
 	return asInterfaces
 }
 
-func (byNamespace KubeconfigsByNamespace) Add(kubeConfig ...*KubeConfig) {
-	for _, item := range kubeConfig {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
+var (
+	KubeConfigGVK = schema.GroupVersionKind{
+		Version: "v1",
+		Group:   "multicluster.solo.io",
+		Kind:    "KubeConfig",
 	}
-}
-
-func (byNamespace KubeconfigsByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace KubeconfigsByNamespace) List() KubeConfigList {
-	var list KubeConfigList
-	for _, kubeConfigList := range byNamespace {
-		list = append(list, kubeConfigList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace KubeconfigsByNamespace) Clone() KubeconfigsByNamespace {
-	cloned := make(KubeconfigsByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
+)

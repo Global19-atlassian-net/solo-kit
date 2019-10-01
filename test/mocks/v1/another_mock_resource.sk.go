@@ -3,6 +3,7 @@
 package v1
 
 import (
+	"log"
 	"sort"
 
 	"github.com/solo-io/go-utils/hashutils"
@@ -34,14 +35,19 @@ func (r *AnotherMockResource) SetStatus(status core.Status) {
 func (r *AnotherMockResource) Hash() uint64 {
 	metaCopy := r.GetMetadata()
 	metaCopy.ResourceVersion = ""
+	metaCopy.Generation = 0
+	// investigate zeroing out owner refs as well
 	return hashutils.HashAll(
 		metaCopy,
 		r.BasicField,
 	)
 }
 
+func (r *AnotherMockResource) GroupVersionKind() schema.GroupVersionKind {
+	return AnotherMockResourceGVK
+}
+
 type AnotherMockResourceList []*AnotherMockResource
-type AnothermockresourcesByNamespace map[string]AnotherMockResourceList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list AnotherMockResourceList) Find(namespace, name string) (*AnotherMockResource, error) {
@@ -108,6 +114,12 @@ func (list AnotherMockResourceList) Each(f func(element *AnotherMockResource)) {
 	}
 }
 
+func (list AnotherMockResourceList) EachResource(f func(element resources.Resource)) {
+	for _, anotherMockResource := range list {
+		f(anotherMockResource)
+	}
+}
+
 func (list AnotherMockResourceList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *AnotherMockResource) {
@@ -115,34 +127,6 @@ func (list AnotherMockResourceList) AsInterfaces() []interface{} {
 	})
 	return asInterfaces
 }
-
-func (byNamespace AnothermockresourcesByNamespace) Add(anotherMockResource ...*AnotherMockResource) {
-	for _, item := range anotherMockResource {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
-	}
-}
-
-func (byNamespace AnothermockresourcesByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace AnothermockresourcesByNamespace) List() AnotherMockResourceList {
-	var list AnotherMockResourceList
-	for _, anotherMockResourceList := range byNamespace {
-		list = append(list, anotherMockResourceList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace AnothermockresourcesByNamespace) Clone() AnothermockresourcesByNamespace {
-	cloned := make(AnothermockresourcesByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
-
-var _ resources.Resource = &AnotherMockResource{}
 
 // Kubernetes Adapter for AnotherMockResource
 
@@ -155,11 +139,27 @@ func (o *AnotherMockResource) DeepCopyObject() runtime.Object {
 	return resources.Clone(o).(*AnotherMockResource)
 }
 
-var AnotherMockResourceCrd = crd.NewCrd("crds.testing.solo.io",
-	"anothermockresources",
-	"crds.testing.solo.io",
-	"v1",
-	"AnotherMockResource",
-	"amr",
-	false,
-	&AnotherMockResource{})
+var (
+	AnotherMockResourceCrd = crd.NewCrd(
+		"anothermockresources",
+		AnotherMockResourceGVK.Group,
+		AnotherMockResourceGVK.Version,
+		AnotherMockResourceGVK.Kind,
+		"amr",
+		false,
+		&AnotherMockResource{})
+)
+
+func init() {
+	if err := crd.AddCrd(AnotherMockResourceCrd); err != nil {
+		log.Fatalf("could not add crd to global registry")
+	}
+}
+
+var (
+	AnotherMockResourceGVK = schema.GroupVersionKind{
+		Version: "v1",
+		Group:   "testing.solo.io",
+		Kind:    "AnotherMockResource",
+	}
+)

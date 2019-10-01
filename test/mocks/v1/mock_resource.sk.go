@@ -3,6 +3,7 @@
 package v1
 
 import (
+	"log"
 	"sort"
 
 	"github.com/solo-io/go-utils/hashutils"
@@ -34,6 +35,8 @@ func (r *MockResource) SetStatus(status core.Status) {
 func (r *MockResource) Hash() uint64 {
 	metaCopy := r.GetMetadata()
 	metaCopy.ResourceVersion = ""
+	metaCopy.Generation = 0
+	// investigate zeroing out owner refs as well
 	return hashutils.HashAll(
 		metaCopy,
 		r.Data,
@@ -41,8 +44,11 @@ func (r *MockResource) Hash() uint64 {
 	)
 }
 
+func (r *MockResource) GroupVersionKind() schema.GroupVersionKind {
+	return MockResourceGVK
+}
+
 type MockResourceList []*MockResource
-type MocksByNamespace map[string]MockResourceList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list MockResourceList) Find(namespace, name string) (*MockResource, error) {
@@ -109,6 +115,12 @@ func (list MockResourceList) Each(f func(element *MockResource)) {
 	}
 }
 
+func (list MockResourceList) EachResource(f func(element resources.Resource)) {
+	for _, mockResource := range list {
+		f(mockResource)
+	}
+}
+
 func (list MockResourceList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *MockResource) {
@@ -116,34 +128,6 @@ func (list MockResourceList) AsInterfaces() []interface{} {
 	})
 	return asInterfaces
 }
-
-func (byNamespace MocksByNamespace) Add(mockResource ...*MockResource) {
-	for _, item := range mockResource {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
-	}
-}
-
-func (byNamespace MocksByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace MocksByNamespace) List() MockResourceList {
-	var list MockResourceList
-	for _, mockResourceList := range byNamespace {
-		list = append(list, mockResourceList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace MocksByNamespace) Clone() MocksByNamespace {
-	cloned := make(MocksByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
-
-var _ resources.Resource = &MockResource{}
 
 // Kubernetes Adapter for MockResource
 
@@ -156,11 +140,27 @@ func (o *MockResource) DeepCopyObject() runtime.Object {
 	return resources.Clone(o).(*MockResource)
 }
 
-var MockResourceCrd = crd.NewCrd("crds.testing.solo.io",
-	"mocks",
-	"crds.testing.solo.io",
-	"v1",
-	"MockResource",
-	"mk",
-	false,
-	&MockResource{})
+var (
+	MockResourceCrd = crd.NewCrd(
+		"mocks",
+		MockResourceGVK.Group,
+		MockResourceGVK.Version,
+		MockResourceGVK.Kind,
+		"mk",
+		false,
+		&MockResource{})
+)
+
+func init() {
+	if err := crd.AddCrd(MockResourceCrd); err != nil {
+		log.Fatalf("could not add crd to global registry")
+	}
+}
+
+var (
+	MockResourceGVK = schema.GroupVersionKind{
+		Version: "v1",
+		Group:   "testing.solo.io",
+		Kind:    "MockResource",
+	}
+)

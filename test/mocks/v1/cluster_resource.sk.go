@@ -3,6 +3,7 @@
 package v1
 
 import (
+	"log"
 	"sort"
 
 	"github.com/solo-io/go-utils/hashutils"
@@ -34,14 +35,19 @@ func (r *ClusterResource) SetStatus(status core.Status) {
 func (r *ClusterResource) Hash() uint64 {
 	metaCopy := r.GetMetadata()
 	metaCopy.ResourceVersion = ""
+	metaCopy.Generation = 0
+	// investigate zeroing out owner refs as well
 	return hashutils.HashAll(
 		metaCopy,
 		r.BasicField,
 	)
 }
 
+func (r *ClusterResource) GroupVersionKind() schema.GroupVersionKind {
+	return ClusterResourceGVK
+}
+
 type ClusterResourceList []*ClusterResource
-type ClusterresourcesByNamespace map[string]ClusterResourceList
 
 // namespace is optional, if left empty, names can collide if the list contains more than one with the same name
 func (list ClusterResourceList) Find(namespace, name string) (*ClusterResource, error) {
@@ -108,6 +114,12 @@ func (list ClusterResourceList) Each(f func(element *ClusterResource)) {
 	}
 }
 
+func (list ClusterResourceList) EachResource(f func(element resources.Resource)) {
+	for _, clusterResource := range list {
+		f(clusterResource)
+	}
+}
+
 func (list ClusterResourceList) AsInterfaces() []interface{} {
 	var asInterfaces []interface{}
 	list.Each(func(element *ClusterResource) {
@@ -115,34 +127,6 @@ func (list ClusterResourceList) AsInterfaces() []interface{} {
 	})
 	return asInterfaces
 }
-
-func (byNamespace ClusterresourcesByNamespace) Add(clusterResource ...*ClusterResource) {
-	for _, item := range clusterResource {
-		byNamespace[item.GetMetadata().Namespace] = append(byNamespace[item.GetMetadata().Namespace], item)
-	}
-}
-
-func (byNamespace ClusterresourcesByNamespace) Clear(namespace string) {
-	delete(byNamespace, namespace)
-}
-
-func (byNamespace ClusterresourcesByNamespace) List() ClusterResourceList {
-	var list ClusterResourceList
-	for _, clusterResourceList := range byNamespace {
-		list = append(list, clusterResourceList...)
-	}
-	return list.Sort()
-}
-
-func (byNamespace ClusterresourcesByNamespace) Clone() ClusterresourcesByNamespace {
-	cloned := make(ClusterresourcesByNamespace)
-	for ns, list := range byNamespace {
-		cloned[ns] = list.Clone()
-	}
-	return cloned
-}
-
-var _ resources.Resource = &ClusterResource{}
 
 // Kubernetes Adapter for ClusterResource
 
@@ -155,11 +139,27 @@ func (o *ClusterResource) DeepCopyObject() runtime.Object {
 	return resources.Clone(o).(*ClusterResource)
 }
 
-var ClusterResourceCrd = crd.NewCrd("crds.testing.solo.io",
-	"clusterresources",
-	"crds.testing.solo.io",
-	"v1",
-	"ClusterResource",
-	"clr",
-	true,
-	&ClusterResource{})
+var (
+	ClusterResourceCrd = crd.NewCrd(
+		"clusterresources",
+		ClusterResourceGVK.Group,
+		ClusterResourceGVK.Version,
+		ClusterResourceGVK.Kind,
+		"clr",
+		true,
+		&ClusterResource{})
+)
+
+func init() {
+	if err := crd.AddCrd(ClusterResourceCrd); err != nil {
+		log.Fatalf("could not add crd to global registry")
+	}
+}
+
+var (
+	ClusterResourceGVK = schema.GroupVersionKind{
+		Version: "v1",
+		Group:   "testing.solo.io",
+		Kind:    "ClusterResource",
+	}
+)
