@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients"
-	factory2 "github.com/solo-io/solo-kit/pkg/api/v1/clients/factory"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/factory"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/wrapper"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
@@ -27,19 +27,41 @@ type MultiClusterResourceClient interface {
 }
 
 type multiClusterResourceClient struct {
-	// TODO make these part of the multicluster kube client factory
-	Crd             crd.Crd
-	SkipCrdCreation bool
-	// TODO support per-config namespace whitelist
-	NamespaceWhitelist []string
-	ResyncPeriod       time.Duration
-	Params             factory2.NewResourceClientParams
+	crd                crd.Crd
+	skipCrdCreation    bool
+	namespaceWhitelist []string
+	resyncPeriod       time.Duration
+	params             factory.NewResourceClientParams
 
 	resourceType    resources.InputResource
 	clients         map[string]*ResourceClient
 	clientAccess    sync.RWMutex
 	cacheGetter     multicluster.KubeSharedCacheGetter
 	watchAggregator wrapper.WatchAggregator
+}
+
+var _ MultiClusterResourceClient = &multiClusterResourceClient{}
+
+func NewMultiClusterResourceClient(
+	cacheGetter multicluster.KubeSharedCacheGetter,
+	watchAggregator wrapper.WatchAggregator,
+	crd crd.Crd,
+	skipCrdCreation bool,
+	namespaceWhitelist []string,
+	resyncPeriod time.Duration,
+	resourceType resources.InputResource,
+	params factory.NewResourceClientParams,
+) *multiClusterResourceClient {
+	return &multiClusterResourceClient{
+		cacheGetter:        cacheGetter,
+		watchAggregator:    watchAggregator,
+		crd:                crd,
+		skipCrdCreation:    skipCrdCreation,
+		namespaceWhitelist: namespaceWhitelist,
+		resyncPeriod:       resyncPeriod,
+		resourceType:       resourceType,
+		params:             params,
+	}
 }
 
 func (rc *multiClusterResourceClient) Kind() string {
@@ -99,17 +121,17 @@ func (rc *multiClusterResourceClient) Watch(namespace string, opts clients.Watch
 }
 
 func (rc *multiClusterResourceClient) ClusterAdded(cluster string, restConfig *rest.Config) {
-	factory := &factory2.KubeResourceClientFactory{
-		Crd:                rc.Crd,
+	kubeResourceClientFactory := &factory.KubeResourceClientFactory{
+		Crd:                rc.crd,
 		Cfg:                restConfig,
 		SharedCache:        rc.cacheGetter.GetCache(cluster),
-		SkipCrdCreation:    rc.SkipCrdCreation,
-		NamespaceWhitelist: rc.NamespaceWhitelist,
-		ResyncPeriod:       rc.ResyncPeriod,
+		SkipCrdCreation:    rc.skipCrdCreation,
+		NamespaceWhitelist: rc.namespaceWhitelist,
+		ResyncPeriod:       rc.resyncPeriod,
 		Cluster:            cluster,
 	}
 
-	client, err := factory.NewResourceClient(rc.Params)
+	client, err := kubeResourceClientFactory.NewResourceClient(rc.params)
 	if err != nil {
 		return
 	}
@@ -145,5 +167,5 @@ func (rc *multiClusterResourceClient) clientFor(cluster string) (*ResourceClient
 	if client, ok := rc.clients[cluster]; ok {
 		return client, nil
 	}
-	return nil, NoClientForClusterError(rc.Crd.Version.Version, rc.Crd.KindName, cluster)
+	return nil, NoClientForClusterError(rc.crd.Version.Version, rc.crd.KindName, cluster)
 }

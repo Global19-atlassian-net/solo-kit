@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/solo-io/solo-kit/pkg/api/v1/clients/wrapper"
-
 	"github.com/hashicorp/consul/api"
 	vaultapi "github.com/hashicorp/vault/api"
 	"github.com/solo-io/go-utils/kubeutils"
@@ -23,8 +21,10 @@ import (
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kubesecret"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/memory"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/vault"
+	"github.com/solo-io/solo-kit/pkg/api/v1/clients/wrapper"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/errors"
+	"github.com/solo-io/solo-kit/pkg/multicluster"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -59,16 +59,9 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 			return nil, errors.Errorf("must provide a shared cache for the kube resource client")
 		}
 
-		// Validate namespace whitelist:
-		// 1. If no namespace list was provided, default to all namespaces
-		// 2. Error if namespace list contains the empty string plus other values
-		namespaceWhitelist := opts.NamespaceWhitelist
-		if len(namespaceWhitelist) == 0 {
-			namespaceWhitelist = []string{metav1.NamespaceAll}
-		}
-		if len(namespaceWhitelist) > 1 && stringutils.ContainsString(metav1.NamespaceAll, namespaceWhitelist) {
-			return nil, fmt.Errorf("the kube resource client namespace list must contain either "+
-				"the empty string (all namespaces) or multiple non-empty strings. Found both: %v", namespaceWhitelist)
+		namespaceWhitelist, err := validatedNamespaceWhitelist(opts.NamespaceWhitelist)
+		if err != nil {
+			return nil, err
 		}
 
 		// If the flag is false, call the k8s apiext API to create the given CRD.
@@ -108,7 +101,33 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 			opts.ResyncPeriod,
 		)
 		return clusterClient(client, opts.Cluster), nil
+	case *MultiClusterKubeResourceClientFactory:
+		if opts.CacheGetter == nil {
+			return nil, errors.Errorf("must provide a multicluster.KubeSharedCacheGetter to the multi cluster kube resource client")
+		}
+		if opts.Crd.Version.Type == nil {
+			return nil, errors.Errorf("must provide a crd for the multi cluster kube resource client")
+		}
+		inputResource, ok := params.ResourceType.(resources.InputResource)
+		if !ok {
+			return nil, errors.Errorf("the kubernetes crd client can only be used for input resources, received type %v", resources.Kind(resourceType))
+		}
+		namespaceWhitelist, err := validatedNamespaceWhitelist(opts.NamespaceWhitelist)
+		if err != nil {
+			return nil, err
+		}
 
+		client := kube.NewMultiClusterResourceClient(
+			opts.CacheGetter,
+			opts.WatchAggregator,
+			opts.Crd,
+			opts.SkipCrdCreation,
+			namespaceWhitelist,
+			opts.ResyncPeriod,
+			inputResource,
+			params,
+		)
+		return client, nil
 	case *ConsulResourceClientFactory:
 		versionedResource, ok := params.ResourceType.(resources.VersionedResource)
 		if !ok {
@@ -158,19 +177,6 @@ type ResourceClientFactory interface {
 	NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error)
 }
 
-type MultiClusterKubeResourceClientFactory struct {
-	Crd                crd.Crd
-	Cfg                *rest.Config
-	SharedCache        kube.SharedCache
-	SkipCrdCreation    bool
-	NamespaceWhitelist []string
-	ResyncPeriod       time.Duration
-	// the cluster that these resources belong to
-	// all resources written and read by the resource client
-	// will be marked with this cluster
-	Cluster string
-}
-
 // If SkipCrdCreation is set to 'true', the clients built with this factory will not attempt to create the given CRD
 // during registration. This allows us to create and register resource clients in cases where the given configuration
 // contains a token associated with a user that is not authorized to create CRDs.
@@ -190,6 +196,23 @@ type KubeResourceClientFactory struct {
 }
 
 func (f *KubeResourceClientFactory) NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error) {
+	return newResourceClient(f, params)
+}
+
+// Contains a subset of the kube resource client factory params that is passed to all factories for
+// per-cluster kube resource clients created by the multi cluster client on ClusterAdded, as well as
+// references to shared resources that inform and act on cluster-level clients.
+type MultiClusterKubeResourceClientFactory struct {
+	CacheGetter     multicluster.KubeSharedCacheGetter
+	WatchAggregator wrapper.WatchAggregator
+	// Passed through to cluster-level clients
+	Crd                crd.Crd
+	SkipCrdCreation    bool
+	NamespaceWhitelist []string
+	ResyncPeriod       time.Duration
+}
+
+func (f *MultiClusterKubeResourceClientFactory) NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error) {
 	return newResourceClient(f, params)
 }
 
@@ -268,4 +291,18 @@ func clusterClient(client clients.ResourceClient, cluster string) clients.Resour
 		return client
 	}
 	return wrapper.NewClusterClient(client, cluster)
+}
+
+// Validate namespace whitelist:
+// 1. If no namespace list was provided, default to all namespaces
+// 2. Error if namespace list contains the empty string plus other values
+func validatedNamespaceWhitelist(namespaceWhitelist []string) ([]string, error) {
+	if len(namespaceWhitelist) == 0 {
+		namespaceWhitelist = []string{metav1.NamespaceAll}
+	}
+	if len(namespaceWhitelist) > 1 && stringutils.ContainsString(metav1.NamespaceAll, namespaceWhitelist) {
+		return nil, fmt.Errorf("the kube resource client namespace list must contain either "+
+			"the empty string (all namespaces) or multiple non-empty strings. Found both: %v", namespaceWhitelist)
+	}
+	return namespaceWhitelist, nil
 }
