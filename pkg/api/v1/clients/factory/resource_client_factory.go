@@ -158,8 +158,17 @@ type ResourceClientFactory interface {
 	NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error)
 }
 
-type ResourceClientFactoryGetter interface {
-	ForCluster(cluster string, restConfig *rest.Config) ResourceClientFactory
+type MultiClusterKubeResourceClientFactory struct {
+	Crd                crd.Crd
+	Cfg                *rest.Config
+	SharedCache        kube.SharedCache
+	SkipCrdCreation    bool
+	NamespaceWhitelist []string
+	ResyncPeriod       time.Duration
+	// the cluster that these resources belong to
+	// all resources written and read by the resource client
+	// will be marked with this cluster
+	Cluster string
 }
 
 // If SkipCrdCreation is set to 'true', the clients built with this factory will not attempt to create the given CRD
