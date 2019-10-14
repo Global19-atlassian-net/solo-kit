@@ -82,13 +82,13 @@ func (c *kubeNamespaceMultiClusterClient) ClusterRemoved(cluster string, restCon
 	}
 }
 
-func (c *kubeNamespaceMultiClusterClient) Read(namespace, name string, opts clients.ReadOpts) (*KubeNamespace, error) {
+func (c *kubeNamespaceMultiClusterClient) Read(name string, opts clients.ReadOpts) (*KubeNamespace, error) {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	return clusterInterface.Read(namespace, name, opts)
+	return clusterInterface.Read(name, opts)
 }
 
 func (c *kubeNamespaceMultiClusterClient) Write(kubeNamespace *KubeNamespace, opts clients.WriteOpts) (*KubeNamespace, error) {
@@ -99,29 +99,29 @@ func (c *kubeNamespaceMultiClusterClient) Write(kubeNamespace *KubeNamespace, op
 	return clusterInterface.Write(kubeNamespace, opts)
 }
 
-func (c *kubeNamespaceMultiClusterClient) Delete(namespace, name string, opts clients.DeleteOpts) error {
+func (c *kubeNamespaceMultiClusterClient) Delete(name string, opts clients.DeleteOpts) error {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return err
 	}
 
-	return clusterInterface.Delete(namespace, name, opts)
+	return clusterInterface.Delete(name, opts)
 }
 
-func (c *kubeNamespaceMultiClusterClient) List(namespace string, opts clients.ListOpts) (KubeNamespaceList, error) {
+func (c *kubeNamespaceMultiClusterClient) List(opts clients.ListOpts) (KubeNamespaceList, error) {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	return clusterInterface.List(namespace, opts)
+	return clusterInterface.List(opts)
 }
 
-func (c *kubeNamespaceMultiClusterClient) Watch(namespace string, opts clients.WatchOpts) (<-chan KubeNamespaceList, <-chan error, error) {
+func (c *kubeNamespaceMultiClusterClient) Watch(opts clients.WatchOpts) (<-chan KubeNamespaceList, <-chan error, error) {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return clusterInterface.Watch(namespace, opts)
+	return clusterInterface.Watch(opts)
 }

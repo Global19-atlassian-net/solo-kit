@@ -20,17 +20,7 @@ import (
 )
 
 var _ = Describe("CustomResourceDefinitionMultiClusterClient", func() {
-	var (
-		namespace string
-	)
-	for _, test := range []typed.ResourceClientTester{
-		&typed.ConsulRcTester{},
-		&typed.FileRcTester{},
-		&typed.MemoryRcTester{},
-		&typed.VaultRcTester{},
-		&typed.KubeSecretRcTester{},
-		&typed.KubeConfigMapRcTester{},
-	} {
+	for _, test := range []typed.ResourceClientTester{} {
 		Context("multi cluster resource client backed by "+test.Description(), func() {
 			var (
 				client              CustomResourceDefinitionMultiClusterClient
@@ -38,15 +28,16 @@ var _ = Describe("CustomResourceDefinitionMultiClusterClient", func() {
 			)
 
 			BeforeEach(func() {
-				namespace = helpers.RandString(6)
-				test.Setup(namespace)
+				test.Setup("")
 			})
 			AfterEach(func() {
-				test.Teardown(namespace)
+				client.Delete(name1, clients.DeleteOpts{})
+				client.Delete(name2, clients.DeleteOpts{})
+				client.Delete(name3, clients.DeleteOpts{})
 			})
 			It("CRUDs CustomResourceDefinitions "+test.Description(), func() {
 				client = NewCustomResourceDefinitionMultiClusterClient(test)
-				CustomResourceDefinitionMultiClusterClientTest(namespace, client, name1, name2, name3)
+				CustomResourceDefinitionMultiClusterClientTest(client, name1, name2, name3)
 			})
 			It("errors when no client exists for the given cluster "+test.Description(), func() {
 				client = NewCustomResourceDefinitionMultiClusterClient(test)
@@ -55,19 +46,19 @@ var _ = Describe("CustomResourceDefinitionMultiClusterClient", func() {
 			It("populates an aggregated watch "+test.Description(), func() {
 				watchAggregator := wrapper.NewWatchAggregator()
 				client = NewCustomResourceDefinitionMultiClusterClientWithWatchAggregator(watchAggregator, test)
-				CustomResourceDefinitionMultiClusterClientWatchAggregationTest(client, watchAggregator, namespace)
+				CustomResourceDefinitionMultiClusterClientWatchAggregationTest(client, watchAggregator)
 			})
 		})
 	}
 })
 
-func CustomResourceDefinitionMultiClusterClientTest(namespace string, client CustomResourceDefinitionMultiClusterClient, name1, name2, name3 string) {
+func CustomResourceDefinitionMultiClusterClientTest(client CustomResourceDefinitionMultiClusterClient, name1, name2, name3 string) {
 	cfg, err := kubeutils.GetConfig("", "")
 	Expect(err).NotTo(HaveOccurred())
 	client.ClusterAdded("", cfg)
 
 	name := name1
-	input := NewCustomResourceDefinition(namespace, name)
+	input := NewCustomResourceDefinition("", name)
 
 	r1, err := client.Write(input, clients.WriteOpts{})
 	Expect(err).NotTo(HaveOccurred())
@@ -78,7 +69,6 @@ func CustomResourceDefinitionMultiClusterClientTest(namespace string, client Cus
 
 	Expect(r1).To(BeAssignableToTypeOf(&CustomResourceDefinition{}))
 	Expect(r1.GetMetadata().Name).To(Equal(name))
-	Expect(r1.GetMetadata().Namespace).To(Equal(namespace))
 	Expect(r1.GetMetadata().ResourceVersion).NotTo(Equal(input.GetMetadata().ResourceVersion))
 	Expect(r1.GetMetadata().Ref()).To(Equal(input.GetMetadata().Ref()))
 
@@ -94,48 +84,44 @@ func CustomResourceDefinitionMultiClusterClientTest(namespace string, client Cus
 		OverwriteExisting: true,
 	})
 	Expect(err).NotTo(HaveOccurred())
-	read, err := client.Read(namespace, name, clients.ReadOpts{})
+	read, err := client.Read(name, clients.ReadOpts{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(read).To(Equal(r1))
-	_, err = client.Read("doesntexist", name, clients.ReadOpts{})
-	Expect(err).To(HaveOccurred())
-	Expect(errors.IsNotExist(err)).To(BeTrue())
 
 	name = name2
 	input = &CustomResourceDefinition{}
 
 	input.SetMetadata(core.Metadata{
-		Name:      name,
-		Namespace: namespace,
+		Name: name,
 	})
 
 	r2, err := client.Write(input, clients.WriteOpts{})
 	Expect(err).NotTo(HaveOccurred())
-	list, err := client.List(namespace, clients.ListOpts{})
+	list, err := client.List(clients.ListOpts{})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(list).To(ContainElement(r1))
 	Expect(list).To(ContainElement(r2))
-	err = client.Delete(namespace, "adsfw", clients.DeleteOpts{})
+	err = client.Delete("adsfw", clients.DeleteOpts{})
 	Expect(err).To(HaveOccurred())
 	Expect(errors.IsNotExist(err)).To(BeTrue())
-	err = client.Delete(namespace, "adsfw", clients.DeleteOpts{
+	err = client.Delete("adsfw", clients.DeleteOpts{
 		IgnoreNotExist: true,
 	})
 	Expect(err).NotTo(HaveOccurred())
-	err = client.Delete(namespace, r2.GetMetadata().Name, clients.DeleteOpts{})
+	err = client.Delete(r2.GetMetadata().Name, clients.DeleteOpts{})
 	Expect(err).NotTo(HaveOccurred())
 
 	Eventually(func() CustomResourceDefinitionList {
-		list, err = client.List(namespace, clients.ListOpts{})
+		list, err = client.List(clients.ListOpts{})
 		Expect(err).NotTo(HaveOccurred())
 		return list
 	}, time.Second*10).Should(ContainElement(r1))
 	Eventually(func() CustomResourceDefinitionList {
-		list, err = client.List(namespace, clients.ListOpts{})
+		list, err = client.List(clients.ListOpts{})
 		Expect(err).NotTo(HaveOccurred())
 		return list
 	}, time.Second*10).ShouldNot(ContainElement(r2))
-	w, errs, err := client.Watch(namespace, clients.WatchOpts{
+	w, errs, err := client.Watch(clients.WatchOpts{
 		RefreshRate: time.Hour,
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -156,8 +142,7 @@ func CustomResourceDefinitionMultiClusterClientTest(namespace string, client Cus
 		input = &CustomResourceDefinition{}
 		Expect(err).NotTo(HaveOccurred())
 		input.SetMetadata(core.Metadata{
-			Name:      name,
-			Namespace: namespace,
+			Name: name,
 		})
 
 		r3, err = client.Write(input, clients.WriteOpts{})
@@ -188,31 +173,30 @@ func CustomResourceDefinitionMultiClusterClientTest(namespace string, client Cus
 	Eventually(w, time.Second*5, time.Second/10).Should(Receive(And(ContainElement(r1), ContainElement(r3), ContainElement(r3))))
 }
 func CustomResourceDefinitionMultiClusterClientCrudErrorsTest(client CustomResourceDefinitionMultiClusterClient) {
-	_, err := client.Read("foo", "bar", clients.ReadOpts{Cluster: "read"})
+	_, err := client.Read("bar", clients.ReadOpts{Cluster: "read"})
 	Expect(err).To(HaveOccurred())
 	Expect(err.Error()).To(Equal(NoCustomResourceDefinitionClientForClusterError("read").Error()))
-	_, err = client.List("foo", clients.ListOpts{Cluster: "list"})
+	_, err = client.List(clients.ListOpts{Cluster: "list"})
 	Expect(err).To(HaveOccurred())
 	Expect(err.Error()).To(Equal(NoCustomResourceDefinitionClientForClusterError("list").Error()))
-	err = client.Delete("foo", "bar", clients.DeleteOpts{Cluster: "delete"})
+	err = client.Delete("bar", clients.DeleteOpts{Cluster: "delete"})
 	Expect(err).To(HaveOccurred())
 	Expect(err.Error()).To(Equal(NoCustomResourceDefinitionClientForClusterError("delete").Error()))
 
 	input := &CustomResourceDefinition{}
 	input.SetMetadata(core.Metadata{
-		Cluster:   "write",
-		Name:      "bar",
-		Namespace: "foo",
+		Cluster: "write",
+		Name:    "bar",
 	})
 	_, err = client.Write(input, clients.WriteOpts{})
 	Expect(err).To(HaveOccurred())
 	Expect(err.Error()).To(Equal(NoCustomResourceDefinitionClientForClusterError("write").Error()))
-	_, _, err = client.Watch("foo", clients.WatchOpts{Cluster: "watch"})
+	_, _, err = client.Watch(clients.WatchOpts{Cluster: "watch"})
 	Expect(err).To(HaveOccurred())
 	Expect(err.Error()).To(Equal(NoCustomResourceDefinitionClientForClusterError("watch").Error()))
 }
-func CustomResourceDefinitionMultiClusterClientWatchAggregationTest(client CustomResourceDefinitionMultiClusterClient, aggregator wrapper.WatchAggregator, namespace string) {
-	w, errs, err := aggregator.Watch(namespace, clients.WatchOpts{})
+func CustomResourceDefinitionMultiClusterClientWatchAggregationTest(client CustomResourceDefinitionMultiClusterClient, aggregator wrapper.WatchAggregator) {
+	w, errs, err := aggregator.Watch(clients.WatchOpts{})
 	Expect(err).NotTo(HaveOccurred())
 	go func() {
 		defer GinkgoRecover()
@@ -231,8 +215,7 @@ func CustomResourceDefinitionMultiClusterClientWatchAggregationTest(client Custo
 	client.ClusterAdded("", cfg)
 	input := &CustomResourceDefinition{}
 	input.SetMetadata(core.Metadata{
-		Name:      "bar",
-		Namespace: namespace,
+		Name: "bar",
 	})
 	written, err := client.Write(input, clients.WriteOpts{})
 	Expect(err).NotTo(HaveOccurred())

@@ -82,13 +82,13 @@ func (c *customResourceDefinitionMultiClusterClient) ClusterRemoved(cluster stri
 	}
 }
 
-func (c *customResourceDefinitionMultiClusterClient) Read(namespace, name string, opts clients.ReadOpts) (*CustomResourceDefinition, error) {
+func (c *customResourceDefinitionMultiClusterClient) Read(name string, opts clients.ReadOpts) (*CustomResourceDefinition, error) {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	return clusterInterface.Read(namespace, name, opts)
+	return clusterInterface.Read(name, opts)
 }
 
 func (c *customResourceDefinitionMultiClusterClient) Write(customResourceDefinition *CustomResourceDefinition, opts clients.WriteOpts) (*CustomResourceDefinition, error) {
@@ -99,29 +99,29 @@ func (c *customResourceDefinitionMultiClusterClient) Write(customResourceDefinit
 	return clusterInterface.Write(customResourceDefinition, opts)
 }
 
-func (c *customResourceDefinitionMultiClusterClient) Delete(namespace, name string, opts clients.DeleteOpts) error {
+func (c *customResourceDefinitionMultiClusterClient) Delete(name string, opts clients.DeleteOpts) error {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return err
 	}
 
-	return clusterInterface.Delete(namespace, name, opts)
+	return clusterInterface.Delete(name, opts)
 }
 
-func (c *customResourceDefinitionMultiClusterClient) List(namespace string, opts clients.ListOpts) (CustomResourceDefinitionList, error) {
+func (c *customResourceDefinitionMultiClusterClient) List(opts clients.ListOpts) (CustomResourceDefinitionList, error) {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return nil, err
 	}
 
-	return clusterInterface.List(namespace, opts)
+	return clusterInterface.List(opts)
 }
 
-func (c *customResourceDefinitionMultiClusterClient) Watch(namespace string, opts clients.WatchOpts) (<-chan CustomResourceDefinitionList, <-chan error, error) {
+func (c *customResourceDefinitionMultiClusterClient) Watch(opts clients.WatchOpts) (<-chan CustomResourceDefinitionList, <-chan error, error) {
 	clusterInterface, err := c.interfaceFor(opts.Cluster)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return clusterInterface.Watch(namespace, opts)
+	return clusterInterface.Watch(opts)
 }
