@@ -38,6 +38,7 @@ type multiClusterResourceClient struct {
 
 var _ MultiClusterResourceClient = &multiClusterResourceClient{}
 
+//TODO update constructor
 func NewMultiClusterResourceClient(
 	cacheGetter multicluster.KubeSharedCacheGetter,
 	watchAggregator wrapper.WatchAggregator,

@@ -102,30 +102,15 @@ func newResourceClient(factory ResourceClientFactory, params NewResourceClientPa
 		)
 		return clusterClient(client, opts.Cluster), nil
 	case *MultiClusterKubeResourceClientFactory:
-		if opts.CacheGetter == nil {
-			return nil, errors.Errorf("must provide a multicluster.KubeSharedCacheGetter to the multi cluster kube resource client")
-		}
-		if opts.Crd.Version.Type == nil {
-			return nil, errors.Errorf("must provide a crd for the multi cluster kube resource client")
-		}
 		inputResource, ok := params.ResourceType.(resources.InputResource)
 		if !ok {
 			return nil, errors.Errorf("the kubernetes crd client can only be used for input resources, received type %v", resources.Kind(resourceType))
-		}
-		namespaceWhitelist, err := validatedNamespaceWhitelist(opts.NamespaceWhitelist)
-		if err != nil {
-			return nil, err
 		}
 
 		client := kube.NewMultiClusterResourceClient(
 			opts.CacheGetter,
 			opts.WatchAggregator,
-			opts.Crd,
-			opts.SkipCrdCreation,
-			namespaceWhitelist,
-			opts.ResyncPeriod,
 			inputResource,
-			params,
 		)
 		return client, nil
 	case *ConsulResourceClientFactory:
@@ -205,11 +190,6 @@ func (f *KubeResourceClientFactory) NewResourceClient(params NewResourceClientPa
 type MultiClusterKubeResourceClientFactory struct {
 	CacheGetter     multicluster.KubeSharedCacheGetter
 	WatchAggregator wrapper.WatchAggregator
-	// Passed through to cluster-level clients
-	Crd                crd.Crd
-	SkipCrdCreation    bool
-	NamespaceWhitelist []string
-	ResyncPeriod       time.Duration
 }
 
 func (f *MultiClusterKubeResourceClientFactory) NewResourceClient(params NewResourceClientParams) (clients.ResourceClient, error) {

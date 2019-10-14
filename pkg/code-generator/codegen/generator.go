@@ -100,12 +100,10 @@ func generateFilesForXdsResource(resource *model.XDSResource) (code_generator.Fi
 func generateFilesForResource(resource *model.Resource) (code_generator.Files, error) {
 	var v code_generator.Files
 	for suffix, tmpl := range map[string]*template.Template{
-		".sk.go":                           templates.ResourceTemplate,
-		"_client.sk.go":                    templates.ResourceClientTemplate,
-		"_client_test.go":                  templates.ResourceClientTestTemplate,
-		"_reconciler.sk.go":                templates.ResourceReconcilerTemplate,
-		"_multi_cluster_client.sk.go":      templates.MultiClusterResourceClientTemplate,
-		"_multi_cluster_client_test.sk.go": templates.MultiClusterResourceClientTestTemplate,
+		".sk.go":            templates.ResourceTemplate,
+		"_client.sk.go":     templates.ResourceClientTemplate,
+		"_client_test.go":   templates.ResourceClientTestTemplate,
+		"_reconciler.sk.go": templates.ResourceReconcilerTemplate,
 	} {
 		content, err := generateResourceFile(resource, tmpl)
 		if err != nil {
