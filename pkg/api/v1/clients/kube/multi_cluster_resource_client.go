@@ -2,11 +2,8 @@ package kube
 
 import (
 	"sync"
-	"time"
 
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients"
-	"github.com/solo-io/solo-kit/pkg/api/v1/clients/factory"
-	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/wrapper"
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/solo-kit/pkg/errors"
@@ -16,8 +13,8 @@ import (
 )
 
 var (
-	NoClientForClusterError = func(version, name, cluster string) error {
-		return errors.Errorf("%v.%v client does not exist for %v", version, name, cluster)
+	NoClientForClusterError = func(kind, cluster string) error {
+		return errors.Errorf("%v client does not exist for %v", kind, cluster)
 	}
 )
 
@@ -26,15 +23,14 @@ type MultiClusterResourceClient interface {
 	handler.ClusterHandler
 }
 
-type multiClusterResourceClient struct {
-	crd                crd.Crd
-	skipCrdCreation    bool
-	namespaceWhitelist []string
-	resyncPeriod       time.Duration
-	params             factory.NewResourceClientParams
+type ClientGetter interface {
+	GetClient(cluster string, restConfig *rest.Config) (clients.ResourceClient, error)
+}
 
+type multiClusterResourceClient struct {
+	clientGetter    ClientGetter
 	resourceType    resources.InputResource
-	clients         map[string]*ResourceClient
+	clients         map[string]clients.ResourceClient
 	clientAccess    sync.RWMutex
 	cacheGetter     multicluster.KubeSharedCacheGetter
 	watchAggregator wrapper.WatchAggregator
@@ -45,22 +41,12 @@ var _ MultiClusterResourceClient = &multiClusterResourceClient{}
 func NewMultiClusterResourceClient(
 	cacheGetter multicluster.KubeSharedCacheGetter,
 	watchAggregator wrapper.WatchAggregator,
-	crd crd.Crd,
-	skipCrdCreation bool,
-	namespaceWhitelist []string,
-	resyncPeriod time.Duration,
 	resourceType resources.InputResource,
-	params factory.NewResourceClientParams,
 ) *multiClusterResourceClient {
 	return &multiClusterResourceClient{
-		cacheGetter:        cacheGetter,
-		watchAggregator:    watchAggregator,
-		crd:                crd,
-		skipCrdCreation:    skipCrdCreation,
-		namespaceWhitelist: namespaceWhitelist,
-		resyncPeriod:       resyncPeriod,
-		resourceType:       resourceType,
-		params:             params,
+		cacheGetter:     cacheGetter,
+		watchAggregator: watchAggregator,
+		resourceType:    resourceType,
 	}
 }
 
@@ -121,22 +107,8 @@ func (rc *multiClusterResourceClient) Watch(namespace string, opts clients.Watch
 }
 
 func (rc *multiClusterResourceClient) ClusterAdded(cluster string, restConfig *rest.Config) {
-	kubeResourceClientFactory := &factory.KubeResourceClientFactory{
-		Crd:                rc.crd,
-		Cfg:                restConfig,
-		SharedCache:        rc.cacheGetter.GetCache(cluster),
-		SkipCrdCreation:    rc.skipCrdCreation,
-		NamespaceWhitelist: rc.namespaceWhitelist,
-		ResyncPeriod:       rc.resyncPeriod,
-		Cluster:            cluster,
-	}
-
-	client, err := kubeResourceClientFactory.NewResourceClient(rc.params)
+	client, err := rc.clientGetter.GetClient(cluster, restConfig)
 	if err != nil {
-		return
-	}
-	kubeClient, ok := client.(*ResourceClient)
-	if !ok {
 		return
 	}
 	if err := client.Register(); err != nil {
@@ -144,7 +116,7 @@ func (rc *multiClusterResourceClient) ClusterAdded(cluster string, restConfig *r
 	}
 	rc.clientAccess.Lock()
 	defer rc.clientAccess.Unlock()
-	rc.clients[cluster] = kubeClient
+	rc.clients[cluster] = client
 	if rc.watchAggregator != nil {
 		rc.watchAggregator.AddWatch(client)
 	}
@@ -161,11 +133,11 @@ func (rc *multiClusterResourceClient) ClusterRemoved(cluster string, restConfig 
 	}
 }
 
-func (rc *multiClusterResourceClient) clientFor(cluster string) (*ResourceClient, error) {
+func (rc *multiClusterResourceClient) clientFor(cluster string) (clients.ResourceClient, error) {
 	rc.clientAccess.RLock()
 	defer rc.clientAccess.RUnlock()
 	if client, ok := rc.clients[cluster]; ok {
 		return client, nil
 	}
-	return nil, NoClientForClusterError(rc.crd.Version.Version, rc.crd.KindName, cluster)
+	return nil, NoClientForClusterError(rc.Kind(), cluster)
 }
