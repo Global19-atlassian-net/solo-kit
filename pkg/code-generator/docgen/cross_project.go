@@ -82,6 +82,9 @@ func WriteCrossProjectDocsHugo(
 				protoMsgName := *message.Name
 				// message-level sub-page link
 				key, value := getApiSummaryKV(hugoOptions.ApiDir, filename, protoPkgName, protoMsgName)
+				if key == "validate.BoolRules" {
+					fmt.Println(value)
+				}
 				hugoPbData.Apis[key] = value
 			}
 		}
