@@ -120,7 +120,7 @@ func (list KubeConfigList) EachResource(f func(element resources.Resource)) {
 }
 
 func (list KubeConfigList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *KubeConfig) {
 		asInterfaces = append(asInterfaces, element)
 	})

@@ -35,7 +35,7 @@ func (r *FrequentlyChangingAnnotationsResource) Hash() uint64 {
 	// investigate zeroing out owner refs as well
 	metaCopy.Annotations = nil
 	return hashutils.HashAll(
-		metaCopy,
+		&metaCopy,
 		r.Blah,
 	)
 }
@@ -110,7 +110,7 @@ func (list FrequentlyChangingAnnotationsResourceList) EachResource(f func(elemen
 }
 
 func (list FrequentlyChangingAnnotationsResourceList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *FrequentlyChangingAnnotationsResource) {
 		asInterfaces = append(asInterfaces, element)
 	})

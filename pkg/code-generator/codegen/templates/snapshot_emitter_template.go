@@ -249,6 +249,7 @@ func (c *{{ lower_camel .GoName }}Emitter) Snapshots(watchNamespaces []string, o
 		// sent initial snapshot to kick off the watch
 		initialSnapshot := currentSnapshot.Clone()
 		snapshots <- &initialSnapshot
+		stats.Record(ctx, m{{ $resource_group }}SnapshotOut.M(1))
 
 		timer := time.NewTicker(time.Second * 1)
 		previousHash := currentSnapshot.Hash()

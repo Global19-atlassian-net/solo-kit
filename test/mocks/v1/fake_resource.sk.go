@@ -34,7 +34,7 @@ func (r *FakeResource) Hash() uint64 {
 	metaCopy.Generation = 0
 	// investigate zeroing out owner refs as well
 	return hashutils.HashAll(
-		metaCopy,
+		&metaCopy,
 		r.Count,
 	)
 }
@@ -109,7 +109,7 @@ func (list FakeResourceList) EachResource(f func(element resources.Resource)) {
 }
 
 func (list FakeResourceList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *FakeResource) {
 		asInterfaces = append(asInterfaces, element)
 	})

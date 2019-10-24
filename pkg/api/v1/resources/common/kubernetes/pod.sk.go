@@ -120,7 +120,7 @@ func (list PodList) EachResource(f func(element resources.Resource)) {
 }
 
 func (list PodList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *Pod) {
 		asInterfaces = append(asInterfaces, element)
 	})

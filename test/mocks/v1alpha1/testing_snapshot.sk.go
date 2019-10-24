@@ -5,6 +5,9 @@ package v1alpha1
 import (
 	"fmt"
 
+	"encoding/binary"
+	"hash/fnv"
+
 	"github.com/solo-io/go-utils/hashutils"
 	"go.uber.org/zap"
 )
@@ -26,7 +29,15 @@ func (s TestingSnapshot) Hash() uint64 {
 }
 
 func (s TestingSnapshot) hashMocks() uint64 {
-	return hashutils.HashAll(s.Mocks.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Mocks {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s TestingSnapshot) HashFields() []zap.Field {

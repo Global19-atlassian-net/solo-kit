@@ -120,7 +120,7 @@ func (list DeploymentList) EachResource(f func(element resources.Resource)) {
 }
 
 func (list DeploymentList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *Deployment) {
 		asInterfaces = append(asInterfaces, element)
 	})

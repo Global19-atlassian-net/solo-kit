@@ -7,6 +7,9 @@ import (
 
 	github_com_solo_io_solo_kit_pkg_api_v1_resources_common_kubernetes "github.com/solo-io/solo-kit/pkg/api/v1/resources/common/kubernetes"
 
+	"encoding/binary"
+	"hash/fnv"
+
 	"github.com/solo-io/go-utils/hashutils"
 	"go.uber.org/zap"
 )
@@ -43,27 +46,75 @@ func (s TestingSnapshot) Hash() uint64 {
 }
 
 func (s TestingSnapshot) hashMocks() uint64 {
-	return hashutils.HashAll(s.Mocks.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Mocks {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s TestingSnapshot) hashFakes() uint64 {
-	return hashutils.HashAll(s.Fakes.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Fakes {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s TestingSnapshot) hashAnothermockresources() uint64 {
-	return hashutils.HashAll(s.Anothermockresources.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Anothermockresources {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s TestingSnapshot) hashClusterresources() uint64 {
-	return hashutils.HashAll(s.Clusterresources.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Clusterresources {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s TestingSnapshot) hashMcts() uint64 {
-	return hashutils.HashAll(s.Mcts.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Mcts {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s TestingSnapshot) hashPods() uint64 {
-	return hashutils.HashAll(s.Pods.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Pods {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s TestingSnapshot) HashFields() []zap.Field {

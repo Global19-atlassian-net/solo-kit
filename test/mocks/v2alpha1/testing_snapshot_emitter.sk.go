@@ -225,6 +225,7 @@ func (c *testingEmitter) Snapshots(watchNamespaces []string, opts clients.WatchO
 		// sent initial snapshot to kick off the watch
 		initialSnapshot := currentSnapshot.Clone()
 		snapshots <- &initialSnapshot
+		stats.Record(ctx, mTestingSnapshotOut.M(1))
 
 		timer := time.NewTicker(time.Second * 1)
 		previousHash := currentSnapshot.Hash()

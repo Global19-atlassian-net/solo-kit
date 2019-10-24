@@ -120,7 +120,7 @@ func (list CustomResourceDefinitionList) EachResource(f func(element resources.R
 }
 
 func (list CustomResourceDefinitionList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *CustomResourceDefinition) {
 		asInterfaces = append(asInterfaces, element)
 	})

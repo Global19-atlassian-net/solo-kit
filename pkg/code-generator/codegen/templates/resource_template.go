@@ -92,7 +92,7 @@ func (r *{{ .Name }}) Hash() uint64 {
 	metaCopy.Annotations = nil
 	{{- end }}
 	return hashutils.HashAll(
-		metaCopy,
+		&metaCopy,
 {{- range .Fields }}
 	{{- if not ( or (eq .Name "metadata") (eq .Name "status") .IsOneof .SkipHashing ) }}
 		r.{{ upper_camel .Name }},
@@ -187,7 +187,7 @@ func (list {{ .Name }}List) EachResource(f func(element resources.Resource)) {
 }
 
 func (list {{ .Name }}List) AsInterfaces() []interface{}{
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *{{ .Name }}) {
 		asInterfaces = append(asInterfaces, element)
 	})

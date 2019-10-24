@@ -38,7 +38,7 @@ func (r *MockResource) Hash() uint64 {
 	metaCopy.Generation = 0
 	// investigate zeroing out owner refs as well
 	return hashutils.HashAll(
-		metaCopy,
+		&metaCopy,
 		r.Data,
 		r.TestOneofFields,
 	)
@@ -122,7 +122,7 @@ func (list MockResourceList) EachResource(f func(element resources.Resource)) {
 }
 
 func (list MockResourceList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *MockResource) {
 		asInterfaces = append(asInterfaces, element)
 	})

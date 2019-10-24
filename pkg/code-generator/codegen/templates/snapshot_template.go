@@ -13,6 +13,8 @@ import (
 	{{ .Imports }}
 	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	"github.com/solo-io/go-utils/hashutils"
+	"encoding/binary"
+	"hash/fnv"
 	"go.uber.org/zap"
 )
 
@@ -42,7 +44,15 @@ func (s {{ .GoName }}Snapshot) Hash() uint64 {
 {{- range .Resources }}
 
 func (s {{ $ResourceGroup.GoName }}Snapshot) hash{{ upper_camel .PluralName }}() uint64 {
-	return hashutils.HashAll(s.{{ upper_camel .PluralName }}.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.{{ upper_camel .PluralName }} {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 {{- end}}
 

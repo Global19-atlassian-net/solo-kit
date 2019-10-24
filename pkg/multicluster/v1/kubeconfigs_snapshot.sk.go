@@ -5,6 +5,9 @@ package v1
 import (
 	"fmt"
 
+	"encoding/binary"
+	"hash/fnv"
+
 	"github.com/solo-io/go-utils/hashutils"
 	"go.uber.org/zap"
 )
@@ -26,7 +29,15 @@ func (s KubeconfigsSnapshot) Hash() uint64 {
 }
 
 func (s KubeconfigsSnapshot) hashKubeconfigs() uint64 {
-	return hashutils.HashAll(s.Kubeconfigs.AsInterfaces()...)
+	hasher := fnv.New64()
+	var int64buf [8]byte
+	for _, element := range s.Kubeconfigs {
+		hashValue := hashutils.HashAll(element)
+		binary.LittleEndian.PutUint64(int64buf[:], hashValue)
+		hasher.Write(int64buf[:])
+	}
+
+	return hasher.Sum64()
 }
 
 func (s KubeconfigsSnapshot) HashFields() []zap.Field {

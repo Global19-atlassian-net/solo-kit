@@ -120,7 +120,7 @@ func (list ServiceList) EachResource(f func(element resources.Resource)) {
 }
 
 func (list ServiceList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *Service) {
 		asInterfaces = append(asInterfaces, element)
 	})

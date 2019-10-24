@@ -120,7 +120,7 @@ func (list MockCustomTypeList) EachResource(f func(element resources.Resource)) 
 }
 
 func (list MockCustomTypeList) AsInterfaces() []interface{} {
-	var asInterfaces []interface{}
+	asInterfaces := make([]interface{}, 0, len(list))
 	list.Each(func(element *MockCustomType) {
 		asInterfaces = append(asInterfaces, element)
 	})
