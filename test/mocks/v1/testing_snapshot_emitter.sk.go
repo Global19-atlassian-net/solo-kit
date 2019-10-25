@@ -6,8 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/solo-io/solo-kit/pkg/api/v1/resources"
 	github_com_solo_io_solo_kit_pkg_api_v1_resources_common_kubernetes "github.com/solo-io/solo-kit/pkg/api/v1/resources/common/kubernetes"
+	"github.com/solo-io/solo-kit/pkg/api/v1/resources/core"
 
+	"go.opencensus.io/resource"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
@@ -17,7 +20,37 @@ import (
 	skstats "github.com/solo-io/solo-kit/pkg/stats"
 
 	"github.com/solo-io/go-utils/errutils"
+	"github.com/solo-io/go-utils/hashutils"
 )
+
+type HashedResource struct {
+	Resource resources.Resource //*MockResource
+	Hash     uint64
+}
+type ResourceSet map[string]struct {
+	HashedResources map[core.ResourceRef]HashedResource
+	Hash            uint64
+}
+
+func (r *ResourceSet) AddHR(hr HashedResource) {
+	r.HashedResources[hr.Resource.GetMetadata().Ref()] = hr
+	r.Hash ^= hr.Hash
+}
+func (r *ResourceSet) Add(r Resource) {
+	hr := HashedResource{
+		Resource: r,
+		Hash:     hashutils.HashAll(r),
+	}
+	r.AddHR(hr)
+}
+
+func (r *ResourceSet) Update(lister func(each func(element resource.Resource))) {
+
+	lister(func(element resource.Resource) {
+		// is the element in the map
+		// do we need to delete the element?
+	})
+}
 
 var (
 	// Deprecated. See mTestingResourcesIn
@@ -407,6 +440,14 @@ func (c *testingEmitter) Snapshots(watchNamespaces []string, opts clients.WatchO
 		anothermockresourcesByNamespace := make(map[string]AnotherMockResourceList)
 		mctsByNamespace := make(map[string]MockCustomTypeList)
 		podsByNamespace := make(map[string]github_com_solo_io_solo_kit_pkg_api_v1_resources_common_kubernetes.PodList)
+
+		mocksByNamespace2 := make(map[string]struct {
+			HashedResoruces map[core.ResourceRef]struct {
+				Resource resource.Resource //*MockResource
+				Hash     uint64
+			}
+			Hash uint64
+		})
 
 		for {
 			record := func() { stats.Record(ctx, mTestingSnapshotIn.M(1)) }
