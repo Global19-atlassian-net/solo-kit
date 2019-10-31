@@ -49,6 +49,7 @@ func (g *kubeResourceClientFactory) GetClient(cluster string, restConfig *rest.C
 		return nil, errors.Errorf("expected KubeSharedCache, got %T", kubeCache)
 	}
 
+	// NOTE that cluster is not set here. Clients are wrapped with their cluster in the ClusterClientGetter.
 	f := &factory.KubeResourceClientFactory{
 		Crd:                g.crd,
 		Cfg:                restConfig,
@@ -56,7 +57,6 @@ func (g *kubeResourceClientFactory) GetClient(cluster string, restConfig *rest.C
 		SkipCrdCreation:    g.skipCrdCreation,
 		NamespaceWhitelist: g.namespaceWhitelist,
 		ResyncPeriod:       g.resyncPeriod,
-		Cluster:            cluster,
 	}
 	return f.NewResourceClient(g.params)
 }
