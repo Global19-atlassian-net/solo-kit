@@ -1,0 +1,3 @@
+changelog:
+  - type: NON_USER_FACING
+    description: Associate clients with clusters when they are added to the client set.
