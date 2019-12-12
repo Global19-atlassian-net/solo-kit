@@ -34,7 +34,11 @@ type ResourceSet map[string]struct {
 
 func (r *ResourceSet) AddHR(hr HashedResource) {
 	r.HashedResources[hr.Resource.GetMetadata().Ref()] = hr
-	r.Hash ^= hr.Hash
+	if hr.Generation != 0 {
+		r.Hash ^= hr.Generation
+	} else {
+		r.Hash ^= hr.Resource.GetMetadata().ResourceVersion
+	}
 }
 func (r *ResourceSet) Add(r Resource) {
 	hr := HashedResource{

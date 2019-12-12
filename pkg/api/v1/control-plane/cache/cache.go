@@ -68,3 +68,21 @@ type Response struct {
 	// Resources to be included in the response.
 	Resources []Resource
 }
+
+type ResponseResources struct {
+
+	// Version of the resources as tracked by the cache for the given type.
+	// Proxy responds with this version as an acknowledgement.
+	Version string
+
+	// Resources to be included in the response.
+	Resources []Resource
+}
+type Response2 struct {
+	// Request is the original request.
+	Request v2.DiscoveryRequest
+
+	// resources to respond with
+	// will be returned in order
+	Resources ResponseResources
+}
