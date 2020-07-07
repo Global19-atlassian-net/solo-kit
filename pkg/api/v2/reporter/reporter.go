@@ -154,6 +154,7 @@ func (r *reporter) WriteReports(ctx context.Context, resourceErrs ResourceReport
 		var updatedResource resources.Resource
 		writeErr := errors.RetryOnConflict(retry.DefaultBackoff, func() error {
 			var writeErr error
+			logger.Warnf("attempting to update status, resource to write %v", resourceToWrite)
 			updatedResource, resourceToWrite, writeErr = attemptUpdateStatus(ctx, client, resourceToWrite)
 			return writeErr
 		})
@@ -182,10 +183,14 @@ func (r *reporter) WriteReports(ctx context.Context, resourceErrs ResourceReport
 //    However, this change is not worth the effort and risk right now. (Ariana, June 2020)
 func attemptUpdateStatus(ctx context.Context, client clients.ResourceClient, resourceToWrite resources.InputResource) (resources.Resource, resources.InputResource, error) {
 	var readErr error
+	logger := contextutils.LoggerFrom(ctx)
+
 	resourceFromRead, readErr := client.Read(resourceToWrite.GetMetadata().Namespace, resourceToWrite.GetMetadata().Name, clients.ReadOpts{Ctx: ctx})
 	if readErr != nil && errors.IsNotExist(readErr) { // resource has been deleted, don't re-create
 		return nil, resourceToWrite, nil
 	}
+	logger.Warnf("attemptUpdateStatus: resource read %v", resourceFromRead.GetMetadata().Ref())
+
 	if readErr == nil {
 		// set resourceToWrite to the resource we read but with the new status
 		// Note: it's possible that this resourceFromRead is newer than the resourceToWrite and therefore the status will be out of sync.
@@ -200,9 +205,14 @@ func attemptUpdateStatus(ctx context.Context, client clients.ResourceClient, res
 	}
 	updatedResource, writeErr := client.Write(resourceToWrite, clients.WriteOpts{Ctx: ctx, OverwriteExisting: true})
 	if writeErr == nil {
+		logger.Warnf("attemptUpdateStatus: resource written %v", updatedResource.GetMetadata().Ref())
 		return updatedResource, resourceToWrite, nil
 	}
+	logger.Warnf("attemptUpdateStatus: resource failed write, err %v", writeErr)
+
 	updatedResource, readErr = client.Read(resourceToWrite.GetMetadata().Namespace, resourceToWrite.GetMetadata().Name, clients.ReadOpts{Ctx: ctx})
+	logger.Warnf("attemptUpdateStatus: resource read after failed write, resource %v err %v", updatedResource.GetMetadata().Ref(), readErr)
+
 	if readErr != nil {
 		if errors.IsResourceVersion(writeErr) {
 			// we don't want to return the unwrapped resource version writeErr if we also had a read error
@@ -216,9 +226,13 @@ func attemptUpdateStatus(ctx context.Context, client clients.ResourceClient, res
 	// trying to update. let's update resourceToWrite for the next iteration
 	equal, _ := hashutils.HashableEqual(updatedResource, resourceToWrite)
 	if !equal {
+		logger.Warnf("attemptUpdateStatus: resource not equal", updatedResource.GetMetadata().Ref(), resourceToWrite.GetMetadata().Ref())
+
 		// different hash, something important was done, do not try again:
 		return updatedResource, resourceToWrite, nil
 	}
+	logger.Warnf("attemptUpdateStatus: resources are equal", updatedResource.GetMetadata().Ref(), resourceToWrite.GetMetadata().Ref())
+
 	resourceToWriteUpdated := resources.Clone(updatedResource).(resources.InputResource)
 	resourceToWriteUpdated.SetStatus(resourceToWrite.GetStatus())
 	return updatedResource, resourceToWriteUpdated, writeErr
