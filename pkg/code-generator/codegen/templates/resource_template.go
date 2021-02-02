@@ -8,6 +8,7 @@ var ResourceTemplate = template.Must(template.New("resource").Funcs(Funcs).Parse
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"hash"
 	"hash/fnv"
 	"log"
@@ -23,6 +24,7 @@ import (
 	"github.com/solo-io/go-utils/hashutils"
 {{- if not $.IsCustom }}
 	"github.com/solo-io/solo-kit/pkg/api/v1/clients/kube/crd"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 {{- end }}
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -222,6 +224,10 @@ var (
 func init() {
 	if err := crd.AddCrd({{ .Name }}Crd); err != nil {
 		log.Fatalf("could not add crd to global registry")
+	}
+
+	if err := json.Unmarshal([]byte({{ .Name }}JsonSchema), &v1beta1.JSONSchemaProps{}); err != nil {
+		log.Fatalf("could not unmarshal {{ .Name }} json schema into kube json schema props"
 	}
 }
 

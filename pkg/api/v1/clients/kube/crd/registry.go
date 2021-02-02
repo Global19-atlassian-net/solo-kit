@@ -6,6 +6,8 @@ import (
 	"sort"
 	"sync"
 
+	"k8s.io/utils/pointer"
+
 	"github.com/rotisserie/eris"
 	"github.com/solo-io/go-utils/versionutils/kubeapi"
 	"github.com/solo-io/k8s-utils/kubeutils"
@@ -117,7 +119,7 @@ func (r *crdRegistry) registerCrd(ctx context.Context, gvk schema.GroupVersionKi
 	return kubeutils.WaitForCrdActive(ctx, clientset, toRegister.Name)
 }
 
-func (r crdRegistry) getKubeCrd(crd MultiVersionCrd, gvk schema.GroupVersionKind) (*v1beta1.CustomResourceDefinition, error) {
+func (r crdRegistry) getKubeCrd(crd MultiVersionCrd, gvk schema.GroupVersionKind, validationSchema *v1beta1.CustomResourceValidation) (*v1beta1.CustomResourceDefinition, error) {
 	scope := v1beta1.NamespaceScoped
 	if crd.ClusterScoped {
 		scope = v1beta1.ClusterScoped
@@ -153,7 +155,7 @@ func (r crdRegistry) getKubeCrd(crd MultiVersionCrd, gvk schema.GroupVersionKind
 		return parsedi.GreaterThan(parsedj)
 	})
 
-	return &v1beta1.CustomResourceDefinition{
+	kubeCrd := &v1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{Name: crd.FullName()},
 		Spec: v1beta1.CustomResourceDefinitionSpec{
 			Group: crd.Group,
@@ -166,5 +168,14 @@ func (r crdRegistry) getKubeCrd(crd MultiVersionCrd, gvk schema.GroupVersionKind
 			Versions: versions,
 			Version:  versions[0].Name,
 		},
-	}, nil
+	}
+
+	if validationSchema != nil {
+		kubeCrd.Spec.Validation = validationSchema
+
+		// Setting PreserveUnknownFields to false ensures that objects with unknown fields are rejected.
+		kubeCrd.Spec.PreserveUnknownFields = pointer.BoolPtr(false)
+	}
+
+	return kubeCrd, nil
 }

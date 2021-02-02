@@ -82,6 +82,9 @@ type GenerateOptions struct {
 
 	// config for anyvendor
 	ExternalImports *sk_anyvendor.Imports
+	// generate openAPI v3 schemas (default: false)
+	// https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#schemaObject
+	GenerateValidationSchema bool
 }
 
 type Runner struct {
@@ -307,7 +310,7 @@ func (r *Runner) Run() error {
 	}
 
 	for _, project := range projectMap {
-		code, err := codegen.GenerateFiles(project, true, r.Opts.SkipGeneratedTests, project.ProjectConfig.GenKubeTypes)
+		code, err := codegen.GenerateFiles(project, true, r.Opts.SkipGeneratedTests, project.ProjectConfig.GenKubeTypes, r.Opts.GenerateValidationSchema)
 		if err != nil {
 			return err
 		}

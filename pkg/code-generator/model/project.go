@@ -122,6 +122,8 @@ type Resource struct {
 
 	// TODO (ilackarms): change to use descriptor.DescriptorProto
 	Original *protokit.Descriptor
+
+	JsonSchema string
 }
 
 type Field struct {
